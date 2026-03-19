@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // For secure login
+import 'dart:convert'; // CRITICAL for base64Decode
 
 class EditorDashboard extends StatefulWidget {
   const EditorDashboard({super.key});
@@ -105,60 +106,110 @@ class _EditorDashboardState extends State<EditorDashboard> {
             final doc = docs[index];
             final story = doc.data() as Map<String, dynamic>;
             final String docId = doc.id;
+            final List<dynamic> pages = story['pages'] ?? [];
 
-            // Local controller for the transcript editing
-            final TextEditingController
-            transcriptController = TextEditingController(
-              text: story['text_content'] ?? story['curation_transcript'] ?? "",
-            );
+            // Local controller for the transcript
+            final TextEditingController transcriptController =
+                TextEditingController(text: story['text_content'] ?? "");
 
             return Card(
-              margin: const EdgeInsets.only(bottom: 16),
+              margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: ExpansionTile(
                 title: Text(
-                  "${story['name'] ?? 'Anonymous'} (${story['country'] ?? 'Global'})",
+                  "${story['name'] ?? 'Anonymous'} - ${story['status']}",
                 ),
-                subtitle: Text("Status: ${story['status']}"),
+                subtitle: Text("Pages: ${pages.length}"),
                 children: [
                   Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        if (story['image_url'] != null)
-                          Image.network(
-                            story['image_url'],
-                            height: 300,
-                            fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
-                                const Icon(Icons.broken_image, size: 50),
-                          ),
-                        const SizedBox(height: 20),
-                        TextField(
-                          controller: transcriptController,
-                          maxLines: 8,
-                          decoration: const InputDecoration(
-                            labelText: "Review & Correct Transcript",
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            ElevatedButton.icon(
-                              icon: const Icon(Icons.check),
-                              label: const Text("Approve Story"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green[100],
+                    // RESPONSIVE SPLIT: Check width to decide layout
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        bool isMobile = constraints.maxWidth < 600;
+
+                        Widget imageStack = Column(
+                          children: pages.map((base64Str) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Image.memory(
+                                base64Decode(base64Str),
+                                fit: BoxFit.contain,
                               ),
-                              onPressed: () => _approveStory(
-                                docId,
-                                transcriptController.text,
+                            );
+                          }).toList(),
+                        );
+
+                        Widget editorFields = Column(
+                          children: [
+                            TextField(
+                              controller: transcriptController,
+                              maxLines: 10,
+                              decoration: const InputDecoration(
+                                labelText: "Transcription",
+                                border: OutlineInputBorder(),
                               ),
                             ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                // REJECT BUTTON
+                                ElevatedButton.icon(
+                                  onPressed: () =>
+                                      _updateStatus(docId, 'rejected'),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text("Reject"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                ),
+                                // APPROVE BUTTON
+                                ElevatedButton.icon(
+                                  onPressed: () => _updateStatus(
+                                    docId,
+                                    'approved',
+                                    transcript: transcriptController.text,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                  ),
+                                  label: const Text("Approve"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
-                        ),
-                      ],
+                        );
+
+                        // If desktop (wide), show side-by-side. If mobile, show top-bottom.
+                        return isMobile
+                            ? Column(
+                                children: [
+                                  imageStack,
+                                  const Divider(),
+                                  editorFields,
+                                ],
+                              )
+                            : Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 1,
+                                    child: SingleChildScrollView(
+                                      child: imageStack,
+                                    ),
+                                  ),
+                                  const VerticalDivider(),
+                                  Expanded(flex: 1, child: editorFields),
+                                ],
+                              );
+                      },
                     ),
                   ),
                 ],
@@ -206,21 +257,32 @@ class _EditorDashboardState extends State<EditorDashboard> {
     );
   }
 
-  Future<void> _approveStory(String docId, String finalTranscript) async {
+  Future<void> _updateStatus(
+    String docId,
+    String status, {
+    String? transcript,
+  }) async {
     try {
-      await FirebaseFirestore.instance.collection('stories').doc(docId).update({
-        'text_content': finalTranscript, // Save your corrections
-        'status': 'approved', // This triggers the hardware
-        'approved_at': FieldValue.serverTimestamp(),
-      });
+      Map<String, dynamic> data = {'status': status};
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Story Approved! Sending to hardware queue."),
-        ),
-      );
+      // If we are approving, save the corrected text
+      if (transcript != null) {
+        data['text_content'] = transcript;
+      }
+
+      // Optional: Clean up memory by deleting the images once approved/rejected
+      // data['pages'] = FieldValue.delete();
+
+      await FirebaseFirestore.instance
+          .collection('stories')
+          .doc(docId)
+          .update(data);
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Story $status successfully")));
     } catch (e) {
-      print("Approval failed: $e");
+      print("Update failed: $e");
     }
   }
 }
