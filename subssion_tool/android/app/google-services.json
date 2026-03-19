@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "133657886949",
+    "project_id": "global-notebook",
+    "storage_bucket": "global-notebook.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:133657886949:android:0c8a16917bdd656d8d540c",
+        "android_client_info": {
+          "package_name": "com.example.subssion_tool"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjl4hwLPuML_E_oj-PXbrFDKUREVSOSsM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
