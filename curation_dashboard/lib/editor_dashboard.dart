@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // For secure login
 import 'dart:convert'; // CRITICAL for base64Decode
+import 'package:url_launcher/url_launcher.dart';
 
 class EditorDashboard extends StatefulWidget {
   const EditorDashboard({super.key});
@@ -32,7 +33,19 @@ class _EditorDashboardState extends State<EditorDashboard> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Story Curation Hub"),
-        actions: [IconButton(icon: const Icon(Icons.logout), onPressed: () {})],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_stories),
+            tooltip: "View Virtual Notebook",
+            onPressed: () async {
+              final Uri url = Uri.parse('http://localhost:8000');
+              if (!await launchUrl(url)) {
+                debugPrint("Could not launch Virtual Notebook.");
+              }
+            },
+          ),
+          IconButton(icon: const Icon(Icons.logout), onPressed: () {}),
+        ],
       ),
       body: Row(
         children: [

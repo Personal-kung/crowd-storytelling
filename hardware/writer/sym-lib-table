@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "PWM3360DM")(type "KiCad")(uri "/home/ubuntu/Downloads/PMW3360DM-T2QU/PMW3360DM-T2QU.kicad_sym")(options "")(descr ""))
+)

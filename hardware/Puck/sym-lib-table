@@ -1,0 +1,5 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "TP4056")(type "KiCad")(uri "/home/ubuntu/Downloads/ul_TP4056/KiCADv6/2026-03-24_14-44-55.kicad_sym")(options "")(descr ""))
+  (lib (name "FS8205A")(type "KiCad")(uri "/home/ubuntu/Downloads/ul_FS8205A/KiCADv6/2026-03-24_15-36-41.kicad_sym")(options "")(descr ""))
+)
