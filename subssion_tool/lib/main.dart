@@ -18,7 +18,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
+  await dotenv.load(fileName: "env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const GlobalNotebookApp());
 }
@@ -309,7 +309,9 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
               fullOcrText += "$combinedPageText\n";
               debugPrint("DEBUG: Captured textAnnotations[0] fallback.");
             } else {
-              debugPrint("DEBUG: No text found in this specific image fragment.");
+              debugPrint(
+                "DEBUG: No text found in this specific image fragment.",
+              );
             }
           }
         }

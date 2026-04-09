@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart'; // For secure login
 import 'dart:convert'; // CRITICAL for base64Decode
 import 'package:url_launcher/url_launcher.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class EditorDashboard extends StatefulWidget {
   const EditorDashboard({super.key});
@@ -14,7 +15,6 @@ class EditorDashboard extends StatefulWidget {
 
 class _EditorDashboardState extends State<EditorDashboard> {
   int _selectedIndex = 0;
-  final String _googleVisionApiKey = "AIzaSyCdgY4PANYQHy-6C8vjy0wUEpnWxvFSLGY"; // User should replace this
 
   // Tracking rotation: Map<docId, Map<pageIndex, rotationIndex>>
   final Map<String, Map<int, int>> _rotations = {};
@@ -137,9 +137,14 @@ class _EditorDashboardState extends State<EditorDashboard> {
                 title: Text(
                   "${story['title'] ?? story['name'] ?? 'Untitled'} - ${story['status']}",
                 ),
-                subtitle: Text("Author: ${story['name'] ?? 'Unknown'} | Pages: ${pages.length}"),
+                subtitle: Text(
+                  "Author: ${story['name'] ?? 'Unknown'} | Pages: ${pages.length}",
+                ),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.redAccent,
+                  ),
                   onPressed: () => _confirmDelete(docId),
                 ),
                 children: [
@@ -154,9 +159,10 @@ class _EditorDashboardState extends State<EditorDashboard> {
                           children: pages.asMap().entries.map((entry) {
                             int pageIdx = entry.key;
                             String base64Str = entry.value;
-                            
+
                             // Get or initialize rotation
-                            if (!_rotations.containsKey(docId)) _rotations[docId] = {};
+                            if (!_rotations.containsKey(docId))
+                              _rotations[docId] = {};
                             int rotation = _rotations[docId]![pageIdx] ?? 0;
 
                             return Padding(
@@ -176,10 +182,14 @@ class _EditorDashboardState extends State<EditorDashboard> {
                                     child: CircleAvatar(
                                       backgroundColor: Colors.black54,
                                       child: IconButton(
-                                        icon: const Icon(Icons.rotate_right, color: Colors.white),
+                                        icon: const Icon(
+                                          Icons.rotate_right,
+                                          color: Colors.white,
+                                        ),
                                         onPressed: () {
                                           setState(() {
-                                            _rotations[docId]![pageIdx] = (rotation + 1) % 4;
+                                            _rotations[docId]![pageIdx] =
+                                                (rotation + 1) % 4;
                                           });
                                         },
                                       ),
@@ -213,9 +223,12 @@ class _EditorDashboardState extends State<EditorDashboard> {
                                 else
                                   IconButton(
                                     icon: const Icon(Icons.auto_awesome),
-                                    tooltip: "Auto-Transcribe with Cloud Vision",
+                                    tooltip:
+                                        "Auto-Transcribe with Cloud Vision",
                                     onPressed: () async {
-                                      final text = await _transcribeImages(pages);
+                                      final text = await _transcribeImages(
+                                        pages,
+                                      );
                                       if (text.isNotEmpty) {
                                         transcriptController.text = text;
                                       }
@@ -229,9 +242,12 @@ class _EditorDashboardState extends State<EditorDashboard> {
                               children: [
                                 Expanded(
                                   child: TextField(
-                                    controller: TextEditingController(text: story['title'] ?? "")..addListener(() {
-                                      // This is a shortcut for demo; better to use a dedicated controller map
-                                    }),
+                                    controller:
+                                        TextEditingController(
+                                          text: story['title'] ?? "",
+                                        )..addListener(() {
+                                          // This is a shortcut for demo; better to use a dedicated controller map
+                                        }),
                                     onChanged: (val) => story['title'] = val,
                                     decoration: const InputDecoration(
                                       labelText: "Story Title (Optional)",
@@ -242,7 +258,9 @@ class _EditorDashboardState extends State<EditorDashboard> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: TextField(
-                                    controller: TextEditingController(text: story['country'] ?? ""),
+                                    controller: TextEditingController(
+                                      text: story['country'] ?? "",
+                                    ),
                                     onChanged: (val) => story['country'] = val,
                                     decoration: const InputDecoration(
                                       labelText: "Country (Optional)",
@@ -254,7 +272,9 @@ class _EditorDashboardState extends State<EditorDashboard> {
                             ),
                             const SizedBox(height: 16),
                             TextField(
-                              controller: TextEditingController(text: story['name'] ?? ""),
+                              controller: TextEditingController(
+                                text: story['name'] ?? "",
+                              ),
                               onChanged: (val) => story['name'] = val,
                               decoration: const InputDecoration(
                                 labelText: "Author (MANDATORY)",
@@ -279,37 +299,39 @@ class _EditorDashboardState extends State<EditorDashboard> {
                                     backgroundColor: Colors.red,
                                   ),
                                 ),
-                                  // APPROVE BUTTON
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      if (story['name'] == null ||
-                                          story['name']!.trim().isEmpty) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                            content: Text("Author is mandatory!"),
-                                            backgroundColor: Colors.orange,
-                                          ),
-                                        );
-                                        return;
-                                      }
-                                      _updateStatus(
-                                        docId,
-                                        'approved',
-                                        transcript: transcriptController.text,
-                                        author: story['name'],
-                                        title: story['title'],
-                                        country: story['country'],
+                                // APPROVE BUTTON
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    if (story['name'] == null ||
+                                        story['name']!.trim().isEmpty) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Author is mandatory!"),
+                                          backgroundColor: Colors.orange,
+                                        ),
                                       );
-                                    },
-                                    icon: const Icon(
-                                      Icons.check,
-                                      color: Colors.white,
-                                    ),
-                                    label: const Text("Approve"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                    ),
+                                      return;
+                                    }
+                                    _updateStatus(
+                                      docId,
+                                      'approved',
+                                      transcript: transcriptController.text,
+                                      author: story['name'],
+                                      title: story['title'],
+                                      country: story['country'],
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
                                   ),
+                                  label: const Text("Approve"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
@@ -443,7 +465,10 @@ class _EditorDashboardState extends State<EditorDashboard> {
 
   Future<void> _deleteStory(String docId) async {
     try {
-      await FirebaseFirestore.instance.collection('stories').doc(docId).delete();
+      await FirebaseFirestore.instance
+          .collection('stories')
+          .doc(docId)
+          .delete();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Story deleted")));
@@ -453,9 +478,15 @@ class _EditorDashboardState extends State<EditorDashboard> {
   }
 
   Future<String> _transcribeImages(List<dynamic> pages) async {
-    if (_googleVisionApiKey == "YOUR_API_KEY_HERE") {
+    final String apiKey = dotenv.get('GOOGLE_VISION_API_KEY', fallback: '');
+
+    if (apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please set your Google Cloud Vision API Key in the code.")),
+        const SnackBar(
+          content: Text(
+            "Please set your GOOGLE_VISION_API_KEY in the .env file.",
+          ),
+        ),
       );
       return "";
     }
@@ -466,20 +497,25 @@ class _EditorDashboardState extends State<EditorDashboard> {
     try {
       for (var base64Image in pages) {
         final response = await http.post(
-          Uri.parse('https://vision.googleapis.com/v1/images:annotate?key=$_googleVisionApiKey'),
+          Uri.parse(
+            'https://vision.googleapis.com/v1/images:annotate?key=$apiKey',
+          ),
           body: jsonEncode({
             "requests": [
               {
                 "image": {"content": base64Image},
-                "features": [{"type": "TEXT_DETECTION"}]
-              }
-            ]
+                "features": [
+                  {"type": "TEXT_DETECTION"},
+                ],
+              },
+            ],
           }),
         );
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final text = data['responses'][0]['fullTextAnnotation']?['text'] ?? "";
+          final text =
+              data['responses'][0]['fullTextAnnotation']?['text'] ?? "";
           fullText += "$text\n";
         } else {
           debugPrint("Vision API Error: ${response.body}");

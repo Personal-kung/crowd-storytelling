@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // Fixes 'Firebase'
 import 'firebase_options.dart'; // This will work AFTER Step 1
 import 'editor_dashboard.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await dotenv.load(fileName: "env");
   // This initializes Firebase using the generated file
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions
