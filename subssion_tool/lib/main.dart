@@ -229,11 +229,21 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
   }
 
   Future<void> _submitStory() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     final storyRef = FirebaseFirestore.instance.collection('stories').doc();
 
     try {
       List<String> base64Pages = [];
       String fullOcrText = "";
+
+      // Collect typed text
+      String typedText = _storyController.text.trim();
 
       // Pull the key from the .env file
       final String apiKey = dotenv.get('GOOGLE_VISION_API_KEY', fallback: '');
@@ -287,8 +297,9 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
           }),
         );
 
+        var data = jsonDecode(response.body);
+
         if (response.statusCode == 200) {
-          var data = jsonDecode(response.body);
           var responses = data['responses'];
 
           if (responses != null && responses.isNotEmpty) {
@@ -314,8 +325,24 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
               );
             }
           }
+        } else {
+          debugPrint(
+            "Vision API Error: ${response.statusCode} - ${data['error']?['message'] ?? response.body}",
+          );
+          throw Exception(
+            "Vision API failed: ${data['error']?['message'] ?? 'Unknown error'}",
+          );
         }
       }
+
+      // Combine typed text and OCR text if both exist
+      String finalContent = typedText;
+      if (fullOcrText.isNotEmpty) {
+        finalContent = typedText.isNotEmpty
+            ? "$typedText\n\n--- OCR Transcription ---\n${fullOcrText.trim()}"
+            : fullOcrText.trim();
+      }
+
       debugPrint("FINAL TEXT TO BE SAVED: $fullOcrText");
       // 2. Save everything to Firestore
       await storyRef.set({
@@ -326,11 +353,8 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
         'contact': _contactController.text,
         'timestamp': FieldValue.serverTimestamp(),
         'type': base64Pages.isNotEmpty ? 'photo' : 'text',
-        // We store the pages as an array of strings
         'pages': base64Pages,
-        'text_content': _storyController.text.isNotEmpty
-            ? _storyController.text
-            : fullOcrText.trim(), // User-typed text (if any)
+        'text_content': finalContent,
         'status': 'pending',
       });
 
@@ -342,9 +366,13 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
       });
     } catch (e) {
       print("Submit Error: $e");
+      if (mounted) Navigator.pop(context); // Remove loading indicator
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Submission failed: $e")));
+    } finally {
+      if (mounted && Navigator.canPop(context))
+        Navigator.pop(context); // Ensure loading is removed
     }
   }
 

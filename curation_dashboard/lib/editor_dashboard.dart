@@ -20,6 +20,9 @@ class _EditorDashboardState extends State<EditorDashboard> {
   final Map<String, Map<int, int>> _rotations = {};
   bool _isTranscribing = false;
 
+  // Store controllers in a map to prevent them from being reset on rebuild
+  final Map<String, TextEditingController> _transcriptControllers = {};
+
   // This would typically come from your Firestore stream
   final List<Map<String, dynamic>> _pendingStories = [
     {
@@ -31,6 +34,14 @@ class _EditorDashboardState extends State<EditorDashboard> {
       "imageUrl": "https://via.placeholder.com/300",
     },
   ];
+
+  @override
+  void dispose() {
+    for (var controller in _transcriptControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -127,11 +138,16 @@ class _EditorDashboardState extends State<EditorDashboard> {
             final String docId = doc.id;
             final List<dynamic> pages = story['pages'] ?? [];
 
-            // Local controller for the transcript
-            final TextEditingController transcriptController =
-                TextEditingController(text: story['text_content'] ?? "");
+            // Initialize or retrieve the controller for this specific document
+            final transcriptController = _transcriptControllers.putIfAbsent(
+              docId,
+              () => TextEditingController(text: story['text_content'] ?? ""),
+            );
 
             return Card(
+              key: ValueKey(
+                docId,
+              ), // Help Flutter maintain state across rebuilds
               margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
               child: ExpansionTile(
                 title: Text(
@@ -231,6 +247,16 @@ class _EditorDashboardState extends State<EditorDashboard> {
                                       );
                                       if (text.isNotEmpty) {
                                         transcriptController.text = text;
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              "Transcription updated successfully!",
+                                            ),
+                                            backgroundColor: Colors.green,
+                                          ),
+                                        );
                                       }
                                     },
                                   ),
@@ -505,8 +531,14 @@ class _EditorDashboardState extends State<EditorDashboard> {
               {
                 "image": {"content": base64Image},
                 "features": [
-                  {"type": "TEXT_DETECTION"},
+                  // Using DOCUMENT_TEXT_DETECTION for more comprehensive text extraction,
+                  // consistent with the submission tool.
+                  {"type": "DOCUMENT_TEXT_DETECTION"},
                 ],
+                // Optional: Add image context for better OCR results if needed
+                // "imageContext": {
+                //   "languageHints": ["en"], // Specify language for better accuracy
+                // }
               },
             ],
           }),
@@ -514,15 +546,42 @@ class _EditorDashboardState extends State<EditorDashboard> {
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
-          final text =
-              data['responses'][0]['fullTextAnnotation']?['text'] ?? "";
-          fullText += "$text\n";
+          var firstResponse = data['responses'][0];
+
+          if (firstResponse['fullTextAnnotation'] != null) {
+            fullText += "${firstResponse['fullTextAnnotation']['text']}\n";
+          } else if (firstResponse['textAnnotations'] != null &&
+              firstResponse['textAnnotations'].isNotEmpty) {
+            // Fallback to textAnnotations if fullTextAnnotation is not available
+            fullText +=
+                "${firstResponse['textAnnotations'][0]['description']}\n";
+          }
         } else {
           debugPrint("Vision API Error: ${response.body}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  "Transcription failed: ${response.statusCode} - ${jsonDecode(response.body)['error']?['message'] ?? 'Unknown error'}",
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
     } catch (e) {
       debugPrint("Transcription failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Transcription failed due to an unexpected error: $e",
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isTranscribing = false);
     }
