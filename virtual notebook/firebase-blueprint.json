@@ -1,0 +1,41 @@
+{
+  "entities": {
+    "Story": {
+      "title": "Story",
+      "description": "A story submitted by a user.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "The title of the story." },
+        "author": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "nationality": { "type": "string" },
+            "flag": { "type": "string" },
+            "bio": { "type": "string" }
+          },
+          "required": ["name", "nationality", "flag", "bio"]
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "content": { "type": "string" }
+            }
+          }
+        },
+        "writingDirection": { "type": "string", "enum": ["ltr", "rtl"] },
+        "coverImage": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "author", "pages", "writingDirection", "coverImage"]
+    }
+  },
+  "firestore": {
+    "/stories": {
+      "schema": "Story",
+      "description": "Collection of all stories."
+    }
+  }
+}

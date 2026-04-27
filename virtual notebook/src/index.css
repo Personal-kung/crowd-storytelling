@@ -1,0 +1,42 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@400;700&family=Noto+Serif+Arabic:wght@400;700&family=Noto+Serif+SC:wght@400;700&display=swap');
+
+@theme {
+  --font-serif: "Noto Serif", "Noto Serif JP", "Noto Serif Arabic", "Noto Serif SC", serif;
+  --color-parchment: #d4d4d4;
+  --color-ink: #000000;
+  --color-parchment-dark: #3f3f46;
+  --color-ink-dark: #fafaf9;
+}
+
+@layer base {
+  body {
+    @apply font-serif bg-parchment text-ink transition-colors duration-500;
+  }
+  .dark body {
+    @apply bg-parchment-dark text-ink-dark;
+  }
+}
+
+.paper-grain {
+  background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.dark .paper-grain {
+  filter: invert(1);
+  opacity: 0.05;
+}
+
+.book-shadow {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.gutter-shadow {
+  background: linear-gradient(to right, transparent, rgba(0,0,0,0.1) 50%, transparent);
+}
+
+.dark .gutter-shadow {
+  background: linear-gradient(to right, transparent, rgba(255,255,255,0.05) 50%, transparent);
+}
