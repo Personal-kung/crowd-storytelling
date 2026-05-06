@@ -24,6 +24,7 @@ export async function transcreateStory(title: string, content: string, targetLan
 
     Return ONLY a JSON response in the following format:
     {
+      "transcreatedTitle": "...",
       "transcreatedText": "...",
       "writingMode": "vertical-rl" | "horizontal-tb",
       "emotionalTone": "...",

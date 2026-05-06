@@ -1,17 +1,21 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@400;700&family=Noto+Serif+Arabic:wght@400;700&family=Noto+Serif+SC:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:ital,wght@0,400;0,700;1,400&family=Noto+Serif+JP:wght@400;700&family=Noto+Serif+Arabic:wght@400;700&family=Noto+Serif+SC:wght@400;700&family=Dancing+Script:wght@400;700&display=swap');
 
 @theme {
   --font-serif: "Noto Serif", "Noto Serif JP", "Noto Serif Arabic", "Noto Serif SC", serif;
-  --color-parchment: #d4d4d4;
-  --color-ink: #000000;
-  --color-parchment-dark: #3f3f46;
-  --color-ink-dark: #fafaf9;
+  --color-parchment: #F5F2E9;
+  --color-ink: #1A1A1B;
+  --color-muted: #D4D0C5;
+  --color-parchment-dark: #1A1A1B;
+  --color-ink-dark: #E5E0D5;
+  --color-muted-dark: #333333;
+  --color-icon: #4A4A4A;
+  --color-icon-dark: #E0E0E0;
 }
 
 @layer base {
   body {
-    @apply font-serif bg-parchment text-ink transition-colors duration-500;
+    @apply font-serif bg-parchment text-ink transition-colors duration-300 ease-in-out;
   }
   .dark body {
     @apply bg-parchment-dark text-ink-dark;

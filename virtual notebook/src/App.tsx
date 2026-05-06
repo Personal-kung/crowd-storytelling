@@ -3,6 +3,12 @@ import Notebook from './components/Notebook';
 import { Story } from './types';
 import { db } from './firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
@@ -61,9 +67,10 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen transition-colors duration-1000 ${
-      theme === 'dark' ? 'bg-stone-900' : 'bg-stone-200'
-    }`}>
+    <div className={cn(
+      "min-h-screen transition-colors duration-1000",
+      theme === 'dark' ? 'bg-[#0F0F10]' : 'bg-[#E5E0D0]'
+    )}>
       <main className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
         <Notebook 
           stories={stories} 
