@@ -12,6 +12,13 @@ export interface StoryPage {
   image?: string;
 }
 
+export interface StoryTranslation {
+  localizedCountry?: string;
+  transcreatedTitle?: string;
+  transcreated_content?: string;
+  writingMode?: 'horizontal-tb' | 'vertical-rl';
+}
+
 export interface Story {
   id: string;
   title: string;
@@ -19,15 +26,19 @@ export interface Story {
   country: string;
   text_content: string;
   timestamp: any;
-  contact: string;
+  contact?: string;
   status: string;
   type: string;
+
   coverImage?: string;
+  translations?: { [languageCode: string]: StoryTranslation; };
+
+  // Runtime fields
+  // These are not stored in Firestore,
+  // they are added after language resolution
+  localizedCountry?: string;
   transcreated_content?: string;
-  localizedCountry?: string | null;
   writingMode?: 'horizontal-tb' | 'vertical-rl';
-  readingCadence?: number;
-  dwellTime?: number;
 }
 
 export interface EnvironmentTheme {

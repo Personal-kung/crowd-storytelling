@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import Notebook from './components/Notebook';
 import { Story } from './types';
 import { db } from './firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { getUserLanguage, getStoryContent } from './services/languageService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -17,14 +18,22 @@ export default function App() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userLanguage, setUserLanguage] = useState("en");
+
+
+  useEffect(() => {
+    setUserLanguage(
+      getUserLanguage()
+    );
+  }, []);
 
   // Calculate global page structure: [ToC, Story1, Story2, ...]
   const globalPages = useMemo(() => {
     const pages: any[] = [{ type: 'toc' }];
     stories.forEach((story, sIdx) => {
-      pages.push({ 
-        type: 'story', 
-        storyIndex: sIdx, 
+      pages.push({
+        type: 'story',
+        storyIndex: sIdx,
         isCover: true // Every story page in the notebook is a cover/preview
       });
     });
@@ -32,7 +41,7 @@ export default function App() {
   }, [stories]);
 
   useEffect(() => {
-    const q = query(collection(db, 'stories'));
+    const q = query(collection(db, "stories"), where("status", "==", "approved"));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetchedStories = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -57,6 +66,19 @@ export default function App() {
       return next;
     });
   };
+  const localizedStories = useMemo(() => {
+    return stories.map(story => ({
+      ...story,
+      title: getStoryContent(story, userLanguage).title,
+      text_content: getStoryContent(story, userLanguage).content,
+      writingMode: getStoryContent(story, userLanguage).writingMode,
+      localizedCountry: getStoryContent(story, userLanguage).localizedCountry
+    }));
+
+  }, [
+    stories,
+    userLanguage
+  ]);
 
   if (loading) {
     return (
@@ -72,17 +94,17 @@ export default function App() {
       theme === 'dark' ? 'bg-[#0F0F10]' : 'bg-[#E5E0D0]'
     )}>
       <main className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
-        <Notebook 
-          stories={stories} 
+        <Notebook
+          stories={localizedStories}
           globalPages={globalPages}
           theme={theme}
-          onThemeToggle={toggleTheme} 
+          onThemeToggle={toggleTheme}
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
           isOpen={isOpen}
           setIsOpen={setIsOpen}
         />
-        
+
         {error && (
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-red-100 text-black px-6 py-3 rounded-full border border-red-300 shadow-lg font-serif italic text-sm z-50">
             {error}
