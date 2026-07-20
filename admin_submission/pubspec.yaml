@@ -1,0 +1,36 @@
+name: admin_submission
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^3.15.0
+  firebase_auth: ^5.6.0
+  google_sign_in: ^6.2.1
+
+  flutter_riverpod: ^2.6.1
+
+  camera: ^0.11.2
+  path_provider: ^2.1.5
+  path: ^1.9.1
+  image: ^4.5.4
+  flutter_image_compress: ^2.4.0
+  uuid: ^4.5.1
+  isar: ^3.1.0+1
+  isar_flutter_libs: 
+    path: packages/isar_flutter_libs
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  isar_generator: ^3.1.0+1
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
