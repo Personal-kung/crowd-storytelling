@@ -1,17 +1,25 @@
 import 'dart:io';
 
+import 'package:admin_submission/features/ocr/services/ocr_test_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/capture_provider.dart';
-import '../repositories/submission_repository.dart';
-import 'capture_screen.dart';
+// import '../repositories/submission_repository.dart';
+// import 'capture_screen.dart';
 
-class CaptureReviewScreen extends ConsumerWidget {
+class CaptureReviewScreen extends ConsumerStatefulWidget {
   const CaptureReviewScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CaptureReviewScreen> createState() =>
+      _CaptureReviewScreenState();
+}
+
+class _CaptureReviewScreenState extends ConsumerState<CaptureReviewScreen> {
+  List<dynamic> _pages = [];
+  @override
+  Widget build(BuildContext context) {
     final session = ref.watch(captureControllerProvider);
     debugPrint('REVIEW SESSION UUID: ${session?.uuid}');
 
@@ -53,6 +61,7 @@ class CaptureReviewScreen extends ConsumerWidget {
                 }
 
                 final pages = snapshot.data!;
+                _pages = pages;
 
                 return ListView.builder(
                   itemCount: pages.length,
@@ -106,12 +115,19 @@ class CaptureReviewScreen extends ConsumerWidget {
                 ),
 
                 ElevatedButton(
-                  child: const Text('Approve'),
+                  child: const Text('send to OCR'),
 
-                  onPressed: () {
-                    ref
-                        .read(captureControllerProvider.notifier)
-                        .approveSubmission();
+                  onPressed: () async {
+                    if (_pages.isEmpty) {
+                      debugPrint('No pages available for OCR');
+                      return;
+                    }
+
+                    final images = _pages
+                        .map((page) => File(page.processedPath))
+                        .toList();
+
+                    await OcrTestService().sendImages(images);
                   },
                 ),
               ],
