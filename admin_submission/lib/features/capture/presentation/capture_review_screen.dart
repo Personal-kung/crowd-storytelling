@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/capture_provider.dart';
 // import '../repositories/submission_repository.dart';
 // import 'capture_screen.dart';
+import '../../review/story_review_screen.dart';
 
 class CaptureReviewScreen extends ConsumerStatefulWidget {
   const CaptureReviewScreen({super.key});
@@ -18,6 +19,7 @@ class CaptureReviewScreen extends ConsumerStatefulWidget {
 
 class _CaptureReviewScreenState extends ConsumerState<CaptureReviewScreen> {
   List<dynamic> _pages = [];
+  bool _isProcessingOCR = false;
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(captureControllerProvider);
@@ -113,22 +115,65 @@ class _CaptureReviewScreenState extends ConsumerState<CaptureReviewScreen> {
                     }
                   },
                 ),
-
                 ElevatedButton(
-                  child: const Text('send to OCR'),
+                  child: _isProcessingOCR
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('send to OCR'),
 
-                  onPressed: () async {
-                    if (_pages.isEmpty) {
-                      debugPrint('No pages available for OCR');
-                      return;
-                    }
+                  onPressed: _isProcessingOCR
+                      ? null
+                      : () async {
+                          if (_pages.isEmpty) {
+                            debugPrint('No pages available for OCR');
+                            return;
+                          }
 
-                    final images = _pages
-                        .map((page) => File(page.processedPath))
-                        .toList();
+                          final images = _pages
+                              .map((page) => File(page.processedPath))
+                              .toList();
 
-                    await OcrTestService().sendImages(images);
-                  },
+                          try {
+                            setState(() {
+                              _isProcessingOCR = true;
+                            });
+
+                            final result = await OcrTestService().sendImages(
+                              images,
+                            );
+
+                            if (!context.mounted) {
+                              setState(() {
+                                _isProcessingOCR = false;
+                              });
+                              return;
+                            }
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StoryReviewScreen(
+                                  ocrResult: result,
+                                  session: session,
+                                ),
+                              ),
+                            );
+                          } catch (e) {
+                            debugPrint('OCR failed: $e');
+                            setState(() {
+                              _isProcessingOCR = false;
+                            });
+
+                            if (!context.mounted) return;
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('OCR failed: $e')),
+                            );
+                          }
+                        },
                 ),
               ],
             ),

@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /stories/{storyId} {
+
+      allow create, update, delete:
+        if request.auth != null
+        && request.auth.uid == "4k0CaRnQKwXBn82CLPxZ8p8yUi73";
+
+      allow read:
+        if true;
+    }
+  }
+}
