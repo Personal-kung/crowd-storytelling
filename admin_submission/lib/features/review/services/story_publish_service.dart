@@ -23,10 +23,10 @@ class StoryPublishService {
 
     await _firestore.collection('stories').add({
       'title': title.trim(),
-      'body': body.trim(),
+      'text_content': body.trim(),
       'curatorNotes': curatorNotes.trim(),
       'contributorName': session.contributorName,
-      'countryName': session.countryName,
+      'country': session.countryName,
       'countryCode': session.countryCode,
       'createdAt': FieldValue.serverTimestamp(),
       'status': 'approved',

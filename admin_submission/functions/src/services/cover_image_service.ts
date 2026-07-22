@@ -41,19 +41,13 @@ export class CoverImageService {
           parts: [
             {
               text:
-                `Create a visual prompt for a story cover.
-                
-Story title:
-${title}
-
-Story:
-${body}
-
-Country:
-${countryName}
-
-The image should feel emotional, human, documentary,
-and respectful. Do not include text in the image.`,
+                `Act as an artistic director. Create a high-quality, cinematic, 
+                and evocative cover image for a story titled "${title}". 
+      Context: "${body}"
+      Style: A beautiful, traditional painting or cinematic scene reflecting 
+      the culture of ${countryName}. 
+      Composition: Centered, rich textures, deep emotional resonance. 
+      Avoid any text, letters, or logos in the image.`,
             },
           ],
         },

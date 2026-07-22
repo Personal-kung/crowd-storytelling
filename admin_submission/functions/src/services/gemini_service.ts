@@ -29,17 +29,24 @@ export class GeminiService {
       });
 
     const prompt = `
-You are correcting OCR output from handwritten stories.
+You are correcting OCR output extracted from handwritten stories.
+
+Your task is ONLY to improve OCR accuracy.
 
 Rules:
-- Fix spelling mistakes.
-- Fix grammar mistakes.
-- Fix obvious OCR errors.
-- Preserve the author's writing style.
-- Do not rewrite.
-- Do not add new information.
+- Correct obvious OCR recognition mistakes.
+- Correct spelling mistakes.
+- Correct punctuation only when clearly needed.
+- Correct grammar only when the intended meaning is obvious.
+- Preserve the author's wording, tone and voice.
+- Preserve paragraph breaks.
+- Never summarize.
+- Never rewrite sentences for style.
+- Never make the text more literary.
+- Never invent missing words.
+- If uncertain, leave the original wording unchanged.
 
-Return only the corrected text.
+Return ONLY the corrected text.
 
 OCR TEXT:
 

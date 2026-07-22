@@ -2,14 +2,14 @@ import {
   HttpsError,
   onCall,
 } from "firebase-functions/v2/https";
-import { logger } from "firebase-functions";
-import { GeminiService } from "./services/gemini_service";
-import { VisionService } from "./services/vision_service";
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
-import { TranslationService } from "./services/translation_service";
-import { CoverImageService } from "./services/cover_image_service";
-import { initializeApp } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import {logger} from "firebase-functions";
+import {GeminiService} from "./services/gemini_service";
+import {VisionService} from "./services/vision_service";
+import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {TranslationService} from "./services/translation_service";
+import {CoverImageService} from "./services/cover_image_service";
+import {initializeApp} from "firebase-admin/app";
+import {getFirestore, FieldValue} from "firebase-admin/firestore";
 
 initializeApp();
 const coverImageService = new CoverImageService();
@@ -136,62 +136,64 @@ export const onStoryPublished =
         return;
       }
 
+      try {
+        const translationService = new TranslationService();
 
-      const translationService =
-        new TranslationService();
-
-      const translation =
-        await translationService.translateStory(
+        const translation = await translationService.translateStory(
           story.title ?? "",
-          story.body ?? "",
+          story.text_content ?? "",
           story.countryName ?? "",
           "en",
         );
 
-
-      await snap.ref.update({
-        translations: {
-          en: translation,
-        },
-      });
-
-
-      logger.info(
-        "Story translated",
-        {
-          id: snap.id,
-        },
-      );
-      try {
-
-        await coverImageService.generateCover(
-          snap.id,
-          story.title ?? "",
-          story.body ?? "",
-          story.countryName ?? "",
-        );
-
         await snap.ref.update({
-          coverImage: {
-            generatedAt:
-              FieldValue.serverTimestamp(),
+          translations: {
+            en: translation,
           },
         });
 
+        logger.info(
+          "Story translated",
+          {
+            id: snap.id,
+          },
+        );
       } catch (error) {
+        logger.error(
+          "Translation failed",
+          error,
+        );
+      }
+      try {
+        const path =
+          await coverImageService.generateCover(
+            snap.id,
+            story.title ?? "",
+            story.body ?? "",
+            story.country ?? "",
+          );
 
+        await snap.ref.update({
+          coverImage: {
+            path,
+            generatedAt: FieldValue.serverTimestamp(),
+          },
+        });
+      } catch (error) {
         logger.error(
           "Cover generation failed",
           error,
         );
-
       }
     },
   );
 
 export const generateCoverImage = onCall(
+  {
+    secrets: ["GEMINI_API_KEY"],
+  },
   async (request) => {
-    const { storyId } = request.data;
+    const {storyId} = request.data;
 
     if (!storyId) {
       throw new Error("Missing storyId");
@@ -220,8 +222,8 @@ export const generateCoverImage = onCall(
       await coverImageService.generateCover(
         storyId,
         data.title ?? "",
-        data.body ?? "",
-        data.countryName ?? "",
+        data.text_content ?? "",
+        data.country ?? "",
       );
 
 
@@ -237,6 +239,47 @@ export const generateCoverImage = onCall(
     return {
       success: true,
       path,
+    };
+  },
+);
+
+export const generateTranslation = onCall(
+  {
+    secrets: ["GEMINI_API_KEY"],
+  },
+  async (request) => {
+    const {storyId, language = "en"} = request.data;
+
+    const storyRef = getFirestore()
+      .collection("stories")
+      .doc(storyId);
+
+    const snap = await storyRef.get();
+
+    if (!snap.exists) {
+      throw new Error("Story not found");
+    }
+
+    const story = snap.data()!;
+
+    const translationService = new TranslationService();
+
+    const translation =
+      await translationService.translateStory(
+        process.env.GEMINI_API_KEY!,
+        story.title ?? "",
+        story.body ?? "",
+        story.countryName ?? "",
+      );
+
+    await storyRef.set({
+      translations: {
+        [language]: translation,
+      },
+    }, {merge: true});
+
+    return {
+      success: true,
     };
   },
 );
