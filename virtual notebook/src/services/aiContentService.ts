@@ -1,6 +1,6 @@
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../firebase";
-
+import { Story } from "../types";
 
 export async function ensureTranslation(
     storyId: string,
@@ -44,4 +44,57 @@ export async function ensureCoverImage(
 
 
     return result.data;
+}
+
+export async function ensureStoryAssets(
+    story: Story,
+    language: string
+) {
+
+    let changed = false;
+
+
+    if (!story.translations?.[language]) {
+
+        console.log(
+            "Generating translation",
+            story.id,
+            language
+        );
+
+
+        await ensureTranslation(
+            story.id,
+            language
+        );
+
+
+        changed = true;
+    }
+
+
+    if (
+        !story.coverImage ||
+        (
+            typeof story.coverImage !== "string" &&
+            !story.coverImage.path
+        )
+    ) {
+
+        console.log(
+            "Generating cover",
+            story.id
+        );
+
+
+        await ensureCoverImage(
+            story.id
+        );
+
+
+        changed = true;
+    }
+
+
+    return changed;
 }

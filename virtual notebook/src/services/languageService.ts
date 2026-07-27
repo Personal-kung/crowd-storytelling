@@ -10,53 +10,6 @@ export function getUserLanguage(): string {
         .split("-")[0]
         .toLowerCase();
 }
-async function ensureStoryAssets(
-    story: Story,
-    language: string
-) {
-
-    let changed = false;
-
-
-    if (!story.translations?.[language]) {
-
-        console.log(
-            "Generating translation",
-            story.id,
-            language
-        );
-
-        await ensureTranslation(
-            story.id,
-            language
-        );
-
-        changed = true;
-    }
-
-
-    if (
-        !story.coverImage ||
-        typeof story.coverImage !== "string" &&
-        !story.coverImage.path
-    ) {
-
-        console.log(
-            "Generating cover",
-            story.id
-        );
-
-        await ensureCoverImage(
-            story.id
-        );
-
-        changed = true;
-    }
-
-
-    return changed;
-}
-
 
 export function getStoryContent(
     story: any,

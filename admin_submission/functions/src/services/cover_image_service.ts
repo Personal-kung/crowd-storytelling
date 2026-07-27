@@ -149,10 +149,7 @@ Style:
 
 
     const bucket =
-      admin.storage()
-        .bucket(
-          "crowd-story-uploads",
-        );
+      admin.storage().bucket();
 
 
     const filePath =

@@ -290,3 +290,291 @@ Important constraints:
 * Make changes incrementally with clear explanations.
 
 The first task is to inspect the current `functions/` directory, identify all deployed Cloud Functions, explain what each one does, and determine how the React application should call them. Then implement the client-side integration one function at a time, testing each connection before moving to the next.
+
+-------------------
+
+# Master Prompt — Global Notebook AI Generation Optimization Phase
+
+I am continuing development of the **Global Notebook** web application.
+
+## Current stack
+
+* React
+* TypeScript
+* Vite
+* Firebase Hosting
+* Firebase Firestore
+* Firebase Storage
+* Google Cloud Functions 2nd Gen
+* Gemini API
+
+## Current production state
+
+The application is deployed successfully.
+
+Current working architecture:
+
+```
+Browser
+   |
+   ▼
+React Virtual Notebook
+   |
+   ▼
+Firebase callable functions
+   |
+   ├── generateTranslation
+   |
+   └── generateCoverImage
+          |
+          ▼
+      Gemini API
+          |
+          ▼
+      Firestore + Storage
+```
+
+The existing deployed functions are located in:
+
+```
+admin_submission/functions
+```
+
+and must be reused.
+
+Do not create duplicate functions.
+
+---
+
+## Current working functions
+
+### generateTranslation
+
+Callable function:
+
+```
+generateTranslation
+```
+
+Responsibilities:
+
+* receives:
+
+```json
+{
+ "storyId":"",
+ "language":""
+}
+```
+
+* checks Firestore story
+* generates Gemini transcreation
+* stores:
+
+```
+stories/{storyId}
+   translations:
+      language
+```
+
+---
+
+### generateCoverImage
+
+Callable function:
+
+```
+generateCoverImage
+```
+
+Responsibilities:
+
+* receives:
+
+```json
+{
+ "storyId":""
+}
+```
+
+* generates Gemini image
+* stores:
+
+```
+Firebase Storage:
+
+covers/{storyId}.png
+```
+
+* updates Firestore:
+
+```json
+coverImage:{
+ path:"covers/{storyId}.png"
+}
+```
+
+---
+
+# Current reader flow
+
+The notebook currently:
+
+1. Detects browser language:
+
+```
+navigator.language
+```
+
+2. Checks missing assets.
+
+3. Calls:
+
+```
+ensureTranslation()
+```
+
+and:
+
+```
+ensureCoverImage()
+```
+
+through Firebase callable functions.
+
+This works.
+
+---
+
+# Next objective
+
+Optimize AI generation calls.
+
+Goals:
+
+## 1. Prevent duplicate generation
+
+A story should only generate:
+
+```
+storyId + language translation
+```
+
+once.
+
+A story should only generate:
+
+```
+cover image
+```
+
+once.
+
+Implement protection against:
+
+* multiple readers opening simultaneously
+* repeated callable requests
+* accidental duplicate Gemini calls
+
+---
+
+## 2. Add generation locking
+
+Before Gemini execution:
+
+Check Firestore state.
+
+Example:
+
+```
+aiGeneration:
+{
+ translation:
+   ja:"processing",
+
+ coverImage:"processing"
+}
+```
+
+Possible states:
+
+```
+missing
+processing
+completed
+failed
+```
+
+Only one request should transition:
+
+```
+missing → processing
+```
+
+---
+
+## 3. Improve callable function safety
+
+Consider:
+
+* Firebase App Check
+* request validation
+* rate protection
+
+Do not require user authentication because the notebook is public.
+
+---
+
+## 4. Maintain failure behavior
+
+Important:
+
+If Gemini fails:
+
+* do not write incomplete Firestore data
+* do not store broken Storage references
+* leave the story available for future retry
+
+---
+
+## 5. Preserve current architecture
+
+Do not move Gemini logic into React.
+
+React should only call:
+
+```
+httpsCallable()
+```
+
+Firestore remains the source of truth.
+
+---
+
+## First task
+
+Inspect:
+
+```
+admin_submission/functions/src/index.ts
+admin_submission/functions/src/services/translation_service.ts
+admin_submission/functions/src/services/cover_image_service.ts
+virtual notebook/src/services/aiContentService.ts
+```
+
+Then propose the smallest safe change to guarantee:
+
+```
+one translation generation per story/language
+one cover generation per story
+```
+
+before modifying code.
+
+---
+
+End of master prompt.
+
+---
+
+After deployment, the next phase will be much safer because we will be optimizing a known-good production baseline rather than debugging multiple moving parts.

@@ -12,8 +12,7 @@ import {
 import { db, storage } from "../firebase";
 import { Story } from "../types";
 import {
-  ensureTranslation,
-  ensureCoverImage
+  ensureStoryAssets
 } from "./aiContentService";
 import {getUserLanguage} from "./languageService";
 
@@ -82,8 +81,9 @@ export async function getApprovedStories(): Promise<Story[]> {
   );
 
 
-  const snapshot =
+  let snapshot =
     await getDocs(storiesQuery);
+
 
   const language =
     getUserLanguage();
@@ -110,6 +110,14 @@ export async function getApprovedStories(): Promise<Story[]> {
 
     if (changed) {
       needsReload = true;
+    }
+    if (needsReload) {
+      console.log(
+        "Reloading stories after AI generation"
+      );
+
+      snapshot =
+        await getDocs(storiesQuery);
     }
   }
 

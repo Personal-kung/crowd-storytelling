@@ -43,10 +43,14 @@ Transcreate the following story from ${sourceLanguage} and its metadata
 into ${targetLanguage}.
 
 CRITICAL INSTRUCTIONS:
-- Maintain the emotional nuance and cultural weight rather than a literal word-for-word translation.
-- If the target language or content is Japanese or Chinese, suggest 'vertical-rl' for writingMode to honor traditional formatting. Otherwise use 'horizontal-tb'.
+- Maintain the emotional nuance and cultural weight 
+rather than a literal word-for-word translation.
+- If the target language or content is Japanese or Chinese, 
+suggest 'vertical-rl' for writingMode to honor 
+traditional formatting. Otherwise use 'horizontal-tb'.
 - Preserve formatting and poetic rhythm.
-- Also translate the Country Name provided below into the ${targetLanguage} equivalent.
+- Also translate the Country Name provided 
+below into the ${targetLanguage} equivalent.
 
 Return exactly this schema:
 

@@ -5,7 +5,6 @@ import { getApprovedStories } from './services/storyService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getUserLanguage, getStoryContent } from './services/languageService';
-import { ensureTranslation } from "./services/aiContentService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -26,27 +25,6 @@ export default function App() {
       getUserLanguage()
     );
   }, []);
-
-  useEffect(() => {
-
-    async function testFunction() {
-
-        const result =
-            await ensureTranslation(
-                "7OuvJci7aFbjxwdjf6DE",
-                "ja"
-            );
-
-        console.log(
-            "translation function result",
-            result
-        );
-    }
-
-
-    testFunction();
-
-}, []);
 
   // Calculate global page structure: [ToC, Story1, Story2, ...]
   const globalPages = useMemo(() => {
