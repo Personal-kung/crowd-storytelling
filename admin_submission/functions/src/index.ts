@@ -5,16 +5,118 @@ import {
 import {logger} from "firebase-functions";
 import {GeminiService} from "./services/gemini_service";
 import {VisionService} from "./services/vision_service";
-import {onDocumentCreated} from "firebase-functions/v2/firestore";
+import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import {TranslationService} from "./services/translation_service";
 import {CoverImageService} from "./services/cover_image_service";
 import {initializeApp} from "firebase-admin/app";
-import {getFirestore, FieldValue} from "firebase-admin/firestore";
+import {getFirestore} from "firebase-admin/firestore";
 
 initializeApp();
 const coverImageService = new CoverImageService();
 const visionService = new VisionService();
 const geminiService = new GeminiService();
+/**
+ * Ensures that a translation exists for the requested language.
+ *
+ * If the translation already exists and force is false,
+ * the existing translation is returned.
+ *
+ * @param {string} storyId Firestore story id.
+ * @param {string} language Target language.
+ * @param {boolean} force Regenerate even if already present.
+ * @return {Promise<object>} Translation object.
+ */
+async function ensureTranslation(
+  storyId: string,
+  language: string,
+  force = false,
+) {
+  if (!language || typeof language !== "string") {
+    throw new HttpsError(
+      "invalid-argument",
+      "language is required",
+    );
+  }
+  const storyRef =
+    getFirestore()
+      .collection("stories")
+      .doc(storyId);
+
+  const snap =
+    await storyRef.get();
+
+  if (!snap.exists) {
+    throw new HttpsError(
+      "not-found",
+      "Story not found",
+    );
+  }
+
+  const story =
+    snap.data()!;
+  if (!story) {
+    throw new HttpsError(
+      "internal",
+      "Story data missing",
+    );
+  }
+
+  const existing =
+    story.translations?.[language];
+
+  if (existing && !force) {
+    logger.info(
+      "Translation already exists",
+      {
+        storyId,
+        language,
+      },
+    );
+
+    return existing;
+  }
+
+  logger.info(
+    "Generating translation",
+    {
+      storyId,
+      language,
+    },
+  );
+
+  const translationService =
+    new TranslationService();
+
+  const translation =
+    await translationService.translateStory(
+      story.title ?? "",
+      story.text_content ?? "",
+      story.country ?? "",
+      story.sourceLanguage ?? "unknown",
+      language,
+    );
+
+  await storyRef.set(
+    {
+      translations: {
+        [language]: translation,
+      },
+    },
+    {
+      merge: true,
+    },
+  );
+
+  logger.info(
+    "Translation stored",
+    {
+      storyId,
+      language,
+    },
+  );
+
+  return translation;
+}
 /**
  * Processes story images with OCR and correction.
  */
@@ -115,47 +217,43 @@ export const processStoryOCR = onCall(
 );
 
 export const onStoryPublished =
-  onDocumentCreated(
+  onDocumentUpdated(
     {
       document: "stories/{storyId}",
       secrets: ["GEMINI_API_KEY"],
     },
     async (event) => {
-      const snap =
+      const eventData =
         event.data;
 
-      if (!snap) {
+      if (!eventData) {
         return;
       }
 
-      const story =
-        snap.data();
+      const before =
+        eventData.before.data();
 
+      const after =
+        eventData.after.data();
 
-      if (story.status !== "approved") {
+      if (!before || !after) {
         return;
       }
+
+      const snap =
+        eventData.after;
 
       try {
-        const translationService = new TranslationService();
-
-        const translation = await translationService.translateStory(
-          story.title ?? "",
-          story.text_content ?? "",
-          story.countryName ?? "",
+        await ensureTranslation(
+          snap.id,
           "en",
         );
 
-        await snap.ref.update({
-          translations: {
-            en: translation,
-          },
-        });
-
         logger.info(
-          "Story translated",
+          "English translation generated",
           {
-            id: snap.id,
+            storyId: snap.id,
+            language: "en",
           },
         );
       } catch (error) {
@@ -165,20 +263,13 @@ export const onStoryPublished =
         );
       }
       try {
-        const path =
-          await coverImageService.generateCover(
-            snap.id,
-            story.title ?? "",
-            story.body ?? "",
-            story.country ?? "",
-          );
-
-        await snap.ref.update({
-          coverImage: {
-            path,
-            generatedAt: FieldValue.serverTimestamp(),
+        await coverImageService.generateCover(snap.id,);
+        logger.info(
+          "Cover image generated",
+          {
+            storyId: snap.id,
           },
-        });
+        );
       } catch (error) {
         logger.error(
           "Cover generation failed",
@@ -193,48 +284,44 @@ export const generateCoverImage = onCall(
     secrets: ["GEMINI_API_KEY"],
   },
   async (request) => {
-    const {storyId} = request.data;
+    const {storyId} =
+      request.data;
 
     if (!storyId) {
-      throw new Error("Missing storyId");
+      throw new HttpsError(
+        "invalid-argument",
+        "storyId is required",
+      );
     }
-
 
     const storyRef =
       getFirestore()
         .collection("stories")
         .doc(storyId);
 
-
-    const story =
+    const snap =
       await storyRef.get();
 
-
-    if (!story.exists) {
-      throw new Error("Story not found");
+    if (!snap.exists) {
+      throw new HttpsError(
+        "not-found",
+        "Story not found",
+      );
     }
 
+    const story = snap.data();
 
-    const data = story.data()!;
-
+    if (!story) {
+      throw new HttpsError(
+        "internal",
+        "Story data missing",
+      );
+    }
 
     const path =
       await coverImageService.generateCover(
         storyId,
-        data.title ?? "",
-        data.text_content ?? "",
-        data.country ?? "",
       );
-
-
-    await storyRef.update({
-      coverImage: {
-        path,
-        generatedAt:
-          FieldValue.serverTimestamp(),
-      },
-    });
-
 
     return {
       success: true,
@@ -248,38 +335,69 @@ export const generateTranslation = onCall(
     secrets: ["GEMINI_API_KEY"],
   },
   async (request) => {
-    const {storyId, language = "en"} = request.data;
+    const {
+      storyId,
+      language = "en",
+    } = request.data;
 
-    const storyRef = getFirestore()
-      .collection("stories")
-      .doc(storyId);
-
-    const snap = await storyRef.get();
-
-    if (!snap.exists) {
-      throw new Error("Story not found");
+    if (!storyId) {
+      throw new HttpsError(
+        "invalid-argument",
+        "storyId is required",
+      );
     }
-
-    const story = snap.data()!;
-
-    const translationService = new TranslationService();
-
-    const translation =
-      await translationService.translateStory(
-        process.env.GEMINI_API_KEY!,
-        story.title ?? "",
-        story.body ?? "",
-        story.countryName ?? "",
+    try {
+      await ensureTranslation(
+        storyId,
+        language,
       );
 
-    await storyRef.set({
-      translations: {
-        [language]: translation,
-      },
-    }, {merge: true});
+      return {
+        success: true,
+        language,
+      };
+    } catch (error) {
+      logger.error(
+        "generateTranslation failed",
+        {
+          error,
+          storyId,
+          language,
+        },
+      );
 
-    return {
-      success: true,
-    };
+      throw new HttpsError(
+        "internal",
+        "Translation generation failed",
+      );
+    }
   },
 );
+export const listGeminiModels =
+  onCall(
+    {
+      secrets: ["GEMINI_API_KEY"],
+    },
+    async () => {
+      const {GoogleGenAI} =
+        await import("@google/genai");
+
+      const ai =
+        new GoogleGenAI({
+          apiKey:
+            process.env.GEMINI_API_KEY,
+        });
+
+      const models:string[] = [];
+
+      for await (const model of await ai.models.list()) {
+        models.push(
+          model.name ?? "unknown",
+        );
+      }
+
+      return {
+        models,
+      };
+    },
+  );

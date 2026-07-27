@@ -1,24 +1,26 @@
-import {GoogleGenerativeAI} from "@google/generative-ai";
+import {GoogleGenAI} from "@google/genai";
 
 /**
- * Service responsible for translating approved story submissions.
+ * Service responsible for translating stories.
  */
 export class TranslationService {
   /**
-   * Translates a story into English.
+   * Translate story content.
    *
-   * @param {string} title Original story title.
-   * @param {string} body Original story content.
-   * @param {string} countryName Original country name.
-   * @param {string} targetLanguage Original language story
-   * @return {Promise<object>} Structured translated story content.
+   * @param {string} title Original title.
+   * @param {string} content Original story content.
+   * @param {string} country Country name.
+   * @param {string} sourceLanguage Original language.
+   * @param {string} targetLanguage Target language.
+   * @return {Promise<object>} Translation result.
    */
   async translateStory(
     title: string,
-    body: string,
-    countryName: string,
+    content: string,
+    country: string,
+    sourceLanguage: string,
     targetLanguage: string,
-  ) {
+  ): Promise<object> {
     const apiKey =
       process.env.GEMINI_API_KEY;
 
@@ -28,44 +30,107 @@ export class TranslationService {
       );
     }
 
-    const genAI =
-      new GoogleGenerativeAI(apiKey);
-
-    const model =
-      genAI.getGenerativeModel({
-        model: "gemini-2.5-flash-lite",
+    const ai =
+      new GoogleGenAI({
+        apiKey,
+        apiVersion: "v1beta",
       });
 
     const prompt = `
-Translate this story submission into natural English.
+Act as a "Transcreator" for an Ancestral Vessel. 
 
-Return ONLY valid JSON.
+Transcreate the following story from ${sourceLanguage} and its metadata 
+into ${targetLanguage}.
 
-Schema:
+CRITICAL INSTRUCTIONS:
+- Maintain the emotional nuance and cultural weight rather than a literal word-for-word translation.
+- If the target language or content is Japanese or Chinese, suggest 'vertical-rl' for writingMode to honor traditional formatting. Otherwise use 'horizontal-tb'.
+- Preserve formatting and poetic rhythm.
+- Also translate the Country Name provided below into the ${targetLanguage} equivalent.
+
+Return exactly this schema:
 
 {
   "localizedCountry": "",
   "translatedTitle": "",
-  "translatedContent": ""
+  "translatedContent": "",
+  "writingMode": "vertical-rl" | "horizontal-tb",
 }
 
-
 Country:
-${countryName}
+${country}
 
-Title:
+Story Title:
 ${title}
 
-Content:
-${body}
+Original Content:
+${content}
 `;
 
-    const result =
-      await model.generateContent(prompt);
+    let response;
 
-    const response =
-      result.response.text();
+    try {
+      response =
+        await ai.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+        });
+    } catch (error) {
+      console.error(
+        "Gemini translation request failed",
+        {
+          name:
+            error instanceof Error ? error.name: "unknown",
+          message:
+            error instanceof Error ? error.message: String(error),
+          error,
+        },
+      );
 
-    return JSON.parse(response);
+      throw error;
+    }
+
+    const text =
+      response.text
+        ?.trim()
+        .replace(
+          /^```json\s*/i,
+          "",
+        )
+        .replace(
+          /\s*```$/,
+          "",
+        );
+
+    if (!text) {
+      throw new Error(
+        "Gemini returned empty translation",
+      );
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.error(
+        "Gemini returned invalid JSON",
+        {
+          text,
+          error,
+        },
+      );
+
+      throw new Error(
+        "Translation JSON parsing failed",
+      );
+    }
   }
 }

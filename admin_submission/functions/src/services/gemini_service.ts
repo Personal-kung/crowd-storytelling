@@ -1,4 +1,4 @@
-import {GoogleGenerativeAI} from "@google/generative-ai";
+import {GoogleGenAI} from "@google/genai";
 
 /**
  * Service responsible for text correction.
@@ -20,12 +20,9 @@ export class GeminiService {
       );
     }
 
-    const genAI =
-      new GoogleGenerativeAI(apiKey);
-
-    const model =
-      genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+    const ai =
+      new GoogleGenAI({
+        apiKey,
       });
 
     const prompt = `
@@ -54,12 +51,20 @@ ${text}
 `;
 
     const result =
-      await model.generateContent(
-        prompt,
-      );
+      await ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+      });
 
-    return result.response
-      .text()
-      .trim();
+    const correctedText =
+      result.text?.trim();
+
+    if (!correctedText) {
+      throw new Error(
+        "Gemini returned empty correction",
+      );
+    }
+
+    return correctedText;
   }
 }
