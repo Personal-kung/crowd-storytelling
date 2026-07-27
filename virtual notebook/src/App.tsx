@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import Notebook from './components/Notebook';
 import { Story } from './types';
-import { db } from './firebase';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { getApprovedStories } from './services/storyService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { getUserLanguage, getStoryContent } from './services/languageService';
+import { ensureTranslation } from "./services/aiContentService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,6 +27,27 @@ export default function App() {
     );
   }, []);
 
+  useEffect(() => {
+
+    async function testFunction() {
+
+        const result =
+            await ensureTranslation(
+                "7OuvJci7aFbjxwdjf6DE",
+                "ja"
+            );
+
+        console.log(
+            "translation function result",
+            result
+        );
+    }
+
+
+    testFunction();
+
+}, []);
+
   // Calculate global page structure: [ToC, Story1, Story2, ...]
   const globalPages = useMemo(() => {
     const pages: any[] = [{ type: 'toc' }];
@@ -41,22 +62,39 @@ export default function App() {
   }, [stories]);
 
   useEffect(() => {
-    const q = query(collection(db, "stories"), where("status", "==", "approved"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedStories = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Story[];
-      setStories(fetchedStories);
-      setLoading(false);
-    }, (err) => {
-      console.error('Firestore Error:', err);
-      setError('Failed to fetch the vessel\'s records.');
-      setLoading(false);
-    });
 
-    return () => unsubscribe();
-  }, []);
+  async function loadStories() {
+
+    try {
+
+      const fetchedStories = await getApprovedStories();
+      setStories(fetchedStories);
+    } catch(err) {
+
+      console.error(
+        "Story loading error:",
+        err
+      );
+
+
+      setError(
+        "Failed to fetch the vessel's records."
+      );
+
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  }
+
+
+  loadStories();
+
+
+}, []);
 
   const toggleTheme = () => {
     setTheme(prev => {
