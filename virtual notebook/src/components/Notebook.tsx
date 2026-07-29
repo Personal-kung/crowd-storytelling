@@ -1,11 +1,11 @@
-import { motion, AnimatePresence, useScroll, useSpring, useTransform } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Story } from '../types';
-import { ChevronLeft, ChevronRight, X, BookOpen, Loader2, Globe, ChevronDown, Moon, Sun, ArrowLeft, Bookmark } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, BookOpen, Loader2, Globe, Moon, Sun, ArrowLeft, Bookmark } from 'lucide-react';
 import { transcreateStory } from '../services/transcreationService';
 import { GoogleGenAI } from "@google/genai";
 import { useInView } from 'react-intersection-observer';
-import { getCountryMetadata, getFlagUrlByCode } from '../services/countryService';
+import { countryCodeToEmoji } from '../services/countryService';
 import { heartbeat, InteractionType } from '../services/HeartbeatService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -38,23 +38,14 @@ const JITImage = ({ src, alt, className }: { src: string; alt: string; className
   );
 };
 
-const DynamicFlag = ({ country }: { country: string }) => {
-  const [flagUrl, setFlagUrl] = useState<string | null>(null);
-  const { ref, inView } = useInView({ triggerOnce: true });
-
-  useEffect(() => {
-    if (inView && country) {
-      getCountryMetadata(country).then(meta => setFlagUrl(meta.flagUrl));
-    }
-  }, [inView, country]);
-
+const DynamicFlag = ({ countryCode }: { countryCode?: string }) => {
   return (
-    <span ref={ref} className="inline-flex items-center justify-center w-6 h-4 overflow-hidden rounded-sm bg-stone-100 dark:bg-stone-800">
-      {flagUrl ? (
-        <img src={flagUrl} alt={country} className="w-full h-full object-cover" />
-      ) : (
-        <span className="text-[10px]">🏳️</span>
-      )}
+    <span
+      className="text-lg"
+      role="img"
+      aria-label="country flag"
+    >
+      {countryCodeToEmoji(countryCode || "UN")}
     </span>
   );
 };
@@ -92,13 +83,11 @@ export default function Notebook({
   const [userLanguage, setUserLanguage] = useState('en');
 
   const [isMobile, setIsMobile] = useState(false);
-  const [isLandscape, setIsLandscape] = useState(false);
   const [hoverStartTime, setHoverStartTime] = useState<number | null>(null);
 
   useEffect(() => {
     const checkViewport = () => {
       setIsMobile(window.innerWidth < 768);
-      setIsLandscape(window.innerWidth > window.innerHeight && window.innerWidth < 1024);
     };
     checkViewport();
     window.addEventListener('resize', checkViewport);
@@ -113,8 +102,6 @@ export default function Notebook({
   }, []);
 
   const flipDuration = 0.5;
-
-  const isCJK = (text: string) => /[\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]/.test(text);
 
   // Reset to first page when closing
   useEffect(() => {
@@ -232,48 +219,55 @@ export default function Notebook({
     }
   };
 
-
   const getStoryData = (storyIdx: number) => {
     const original = stories[storyIdx];
 
     if (!original) return null;
-    const generatedImage = generatedImages[original.id];
 
-    if (showOriginal) {
-      return {
-        ...original,
-        coverImage: original.coverImage || generatedImages[original.id]
-      };
-    }
-    const translation = showOriginal ? null : getStoryContent(original, userLanguage);
+    const translation = getStoryContent(
+      original,
+      userLanguage
+    );
 
-    const transcreation = localTranscreations[original.id];
-
-    const combined = {
+    return {
       ...original,
-      ...(translation && {
-        title: translation.title,
-        text_content: translation.content,
-        localizedCountry: translation.localizedCountry,
-        writingMode: translation.writingMode
-      }),
-      ...transcreation,
-      coverImage: original.coverImage || generatedImage
-    } as Story;
 
-    return combined;
+      // immutable originals
+      originalTitle: original.title,
+      originalText: original.text_content,
+
+      // localized presentation
+      title: showOriginal
+        ? original.title
+        : translation.title || original.title,
+
+      text_content: showOriginal
+        ? original.text_content
+        : translation.content || original.text_content,
+
+      localizedCountry:
+        translation.localizedCountry || original.country,
+
+      writingMode: showOriginal
+        ? "horizontal-tb"
+        : translation.writingMode || "horizontal-tb",
+
+      coverImage:
+        original.coverImage ||
+        generatedImages[original.id]
+
+    } as Story;
   };
 
   useEffect(() => {
-
     if (!stories.length) return;
-    stories.forEach(async story => {
+    stories.forEach(story => {
       const content = getStoryContent(story, userLanguage);
       if (!content.translated) {
-        console.log("Missing translation:", story.title, userLanguage);
-        await handleTranscreate(story, userLanguage);
+        console.log("[TRANSLATION MISSING]", story.title, userLanguage);
       }
     });
+
   }, [stories, userLanguage]);
 
   const leftPage = globalPages[currentPage];
@@ -587,7 +581,7 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
                   {s.title}
                 </h3>
                 <p className="text-xs text-ink/60 dark:text-ink-dark/60 italic mt-2 italic flex items-center gap-2">
-                  <DynamicFlag country={s.country} /> From the annals of {s.country}
+                  <DynamicFlag countryCode={s.ISOcode || "UN"} />
                 </p>
               </div>
             );
@@ -619,8 +613,8 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
           <div className="mt-6 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
             <span className="text-xs font-serif italic text-white/80">By {story.name}</span>
             <span className="w-1 h-1 bg-white/40 rounded-full" />
-            <span className="text-xs font-serif italic text-white/80 inline-flex items-center gap-2">
-              <DynamicFlag country={story.country} /> {story.localizedCountry || story.country}
+            <span className="text-xs font-serif italic text-white inline-flex items-center gap-2">
+              <DynamicFlag countryCode={story.ISOcode} /> {story.localizedCountry || story.ISOcode}
             </span>
           </div>
         </div>
@@ -629,7 +623,16 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
   );
 }
 
-function FullScreenStory({ story, onClose, onTranscreate, isTranscreating, theme, onThemeToggle }: {
+function FullScreenStory({
+  story,
+  onClose,
+  onTranscreate,
+  isTranscreating,
+  theme,
+  onThemeToggle,
+  showOriginal,
+  setShowOriginal
+}: {
   story: Story,
   onClose: () => void,
   onTranscreate: (s: Story, l: string) => void,
@@ -642,11 +645,34 @@ function FullScreenStory({ story, onClose, onTranscreate, isTranscreating, theme
   setShowOriginal: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
   const [showLang, setShowLang] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [showOriginal, setShowOriginal] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [userLanguage] = useState(getUserLanguage());
 
+  useEffect(() => {
+
+    console.log("[WRITING DEBUG]", {
+
+      title: story.title,
+
+      userLanguage,
+
+      writingMode: story.writingMode,
+
+      hasTranslation: !!story.transcreated_content,
+
+      contentPreview:
+        (story.text_content || "")
+          .substring(0, 80)
+
+    });
+
+  }, [
+    story,
+    userLanguage
+  ]);
+
   const [isSmallMobile, setIsSmallMobile] = useState(window.innerWidth < 480);
+
 
   useEffect(() => {
     const checkMobile = () => {
@@ -757,25 +783,41 @@ function FullScreenStory({ story, onClose, onTranscreate, isTranscreating, theme
           transition={{ delay: 0.5 }}
         >
           <span className="text-[12px] uppercase tracking-[0.6em] text-amber-600 dark:text-amber-500 font-bold mb-6 block text-center">Sacred Record</span>
+          <div className="flex justify-center mb-6">
+
+            <button
+              onClick={() => { setShowOriginal(prev => !prev); }}
+              className="
+px-4 py-2
+rounded-full
+bg-stone-200
+dark:bg-stone-800
+font-serif
+italic
+text-sm
+hover:scale-105
+transition
+"
+            >
+              {showOriginal
+                ? "Read translation"
+                : "Read original language"
+              }
+            </button>
+
+          </div>
 
           <div className="mb-16 text-center space-y-4">
+
             <h1 className={cn(
               "font-serif italic text-ink dark:text-ink-dark leading-tight",
               !isMobile ? "text-4xl md:text-8xl" : "text-3xl"
             )}>
-              {story.transcreated_content ? (story as any).originalTitle : story.title}
+              {showOriginal
+                ? story.originalTitle
+                : story.title}
             </h1>
-            {story.transcreated_content && (
-              <>
-                <div className="w-24 h-px bg-stone-300 dark:bg-stone-700 mx-auto my-6" />
-                <h2 className={cn(
-                  "font-serif italic text-ink/70 dark:text-ink-dark/70 leading-tight",
-                  !isMobile ? "text-2xl md:text-4xl" : "text-xl"
-                )}>
-                  {story.title}
-                </h2>
-              </>
-            )}
+
           </div>
 
           <div
@@ -783,9 +825,22 @@ function FullScreenStory({ story, onClose, onTranscreate, isTranscreating, theme
               "prose dark:prose-invert mx-auto font-serif text-ink dark:text-ink-dark",
               !isMobile ? "prose-2xl leading-loose" : (isSmallMobile ? "text-[19px] leading-[1.65]" : "prose-lg leading-loose")
             )}
-            style={{ writingMode: story.writingMode || 'horizontal-tb' }}
+            style={{
+              writingMode:
+                showOriginal
+                  ? "horizontal-tb"
+                  : story.writingMode || "horizontal-tb",
+
+              textOrientation:
+                story.writingMode === "vertical-rl"
+                  ? "mixed"
+                  : undefined
+            }}
           >
-            {(story.transcreated_content || story.text_content || '').split('\n\n').map((para, i) => (
+            {(showOriginal
+              ? story.originalText
+              : story.text_content
+            )?.split("\n\n").map((para, i) => (
               <motion.p
                 key={i}
                 initial={{ opacity: 0 }}
@@ -812,8 +867,10 @@ function FullScreenStory({ story, onClose, onTranscreate, isTranscreating, theme
               "flex items-center justify-center gap-4 uppercase font-serif",
               !isMobile ? "text-xl tracking-widest" : "text-sm tracking-wide"
             )}>
-              <DynamicFlag country={story.country} />
-              <span>{story.localizedCountry || story.country}</span>
+              <DynamicFlag countryCode={story.ISOcode || "UN"} />
+              <span className="text-ink dark:text-ink-dark">
+                {story.localizedCountry || story.country}
+              </span>
             </div>
             <div className="mt-12 opacity-30 text-[10px] font-mono uppercase tracking-[1em]">END_OF_RECORD</div>
           </div>

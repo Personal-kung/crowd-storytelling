@@ -11,65 +11,27 @@ export function getUserLanguage(): string {
         .toLowerCase();
 }
 
+
 export function getStoryContent(
     story: any,
     language: string
 ) {
-
-    const translation =
-        story.translations?.[language];
-
-
+    const translation = story.translations?.[language];
     if (translation) {
-
         return {
-
-            title:
-                translation.transcreatedTitle ??
-                translation.translatedTitle ??
-                story.title,
-
-
-            content:
-                translation.transcreated_content ??
-                translation.translatedContent ??
-                story.text_content,
-
-
-            writingMode:
-                translation.writingMode ??
-                "horizontal-tb",
-
-
-            localizedCountry:
-                translation.localizedCountry ??
-                story.country,
-
-
+            title: translation.transcreatedTitle ?? translation.translatedTitle ?? story.title,
+            content: translation.transcreated_content ?? translation.translatedContent ?? story.text_content,
+            writingMode: translation.writingMode ?? (language === "ja" ? "vertical-rl" : "horizontal-tb"),
+            localizedCountry: translation.localizedCountry ?? story.country,
             translated: true
         };
-
     }
-
-
     return {
-
-        title:
-            story.title,
-
-
-        content:
-            story.text_content,
-
-
-        writingMode:
-            "horizontal-tb",
-
-
-        localizedCountry:
-            story.country,
-
-
-        translated:false
+        title: story.title,
+        content: story.text_content,
+        writingMode: "horizontal-tb",
+        localizedCountry: story.country,
+        translated: false
     };
+
 }

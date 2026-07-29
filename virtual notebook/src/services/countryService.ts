@@ -60,3 +60,18 @@ export async function getCountryMetadata(
 export function getFlagUrlByCode(code: string): string {
   return `https://flagcdn.com/w160/${code.toLowerCase()}.png`;
 }
+
+export function countryCodeToEmoji(code: string): string {
+  if (!code || code.length !== 2) {
+    return "🌍";
+  }
+  return code
+    .toUpperCase()
+    .split("")
+    .map(char =>
+      String.fromCodePoint(
+        127397 + char.charCodeAt(0)
+      )
+    )
+    .join("");
+}

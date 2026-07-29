@@ -39,6 +39,7 @@ export interface Story {
   title: string;
   name: string;
   country: string;
+  ISOcode?: string;
 
   text_content: string;
 
