@@ -94,12 +94,6 @@ export default function Notebook({
     return () => window.removeEventListener('resize', checkViewport);
   }, []);
 
-  useEffect(() => {
-    const detectedLanguage = getUserLanguage();
-    setUserLanguage(detectedLanguage);
-
-    console.log("[LANGUAGE] Detected:", detectedLanguage);
-  }, []);
 
   const flipDuration = 0.5;
 
@@ -117,68 +111,12 @@ export default function Notebook({
     }
   }, [currentPage, isOpen]);
 
+  /*
+  // Disabled overcomplicated AI image generation function for simplicity
   const generateImage = async (story: Story) => {
-    if (generatedImages[story.id] || story.coverImage || isGenerating[story.id] || quotaExceeded) return;
-    if (generatingRef.current.has(story.id)) return;
-
-    generatingRef.current.add(story.id);
-    setIsGenerating(prev => ({ ...prev, [story.id]: true }));
-
-    try {
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (!apiKey) throw new Error("GEMINI_API_KEY not found in environment");
-
-      const ai = new GoogleGenAI({ apiKey });
-      const prompt = `Act as an artistic director. Create a high-quality, cinematic, and evocative cover image for a story titled "${story.title}". 
-      Context: "${story.text_content?.substring(0, 500)}"
-      Style: A beautiful, traditional painting or cinematic scene reflecting the culture of ${story.country}. 
-      Composition: Centered, rich textures, deep emotional resonance. 
-      Avoid any text, letters, or logos in the image.`;
-
-      console.warn(`[DEBUG_IMAGE_GEN] >>> Prompt for story "${story.title}":`, prompt);
-
-      const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
-        contents: prompt,
-        config: {
-          imageConfig: {
-            aspectRatio: "16:9"
-          }
-        }
-      });
-
-      console.warn(`[DEBUG_IMAGE_GEN] <<< Gemini Response for "${story.title}" received`);
-
-      let imageUrl = "";
-      if (response.candidates?.[0]?.content?.parts) {
-        for (const part of response.candidates[0].content.parts) {
-          if (part.inlineData) {
-            imageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-            break;
-          }
-        }
-      }
-
-      if (imageUrl) {
-        console.warn(`[DEBUG_IMAGE_GEN] === Generated image for story "${story.title}"`);
-        setGeneratedImages(prev => ({ ...prev, [story.id]: imageUrl }));
-      } else {
-        console.warn(`[DEBUG_IMAGE_GEN] === No image found in response for "${story.title}". Text response:`, response.text);
-      }
-
-      setIsGenerating(prev => ({ ...prev, [story.id]: false }));
-    } catch (error: any) {
-      console.error('Error generating image:', error);
-      const errorStr = JSON.stringify(error);
-      if (errorStr.includes('429') || errorStr.includes('RESOURCE_EXHAUSTED')) {
-        setQuotaExceeded(true);
-        setTimeout(() => setQuotaExceeded(false), 60000);
-      }
-      setIsGenerating(prev => ({ ...prev, [story.id]: false }));
-    } finally {
-      generatingRef.current.delete(story.id);
-    }
+    ...
   };
+  */
 
   const goToPage = (pageIdx: number) => {
     if (pageIdx < 0 || pageIdx >= globalPages.length) return;
@@ -195,33 +133,15 @@ export default function Notebook({
     if (currentPage > 0) goToPage(currentPage - 2);
   };
 
+  /*
+  // Disabled overcomplicated client-side transcreation function for simplicity
   const handleTranscreate = async (story: Story, language: string) => {
-    if (isTranscreating[story.id]) return;
-    setIsTranscreating(prev => ({ ...prev, [story.id]: true }));
-
-    try {
-      const result = await transcreateStory(story.title, story.text_content, language);
-      setLocalTranscreations(prev => ({
-        ...prev,
-        [story.id]: {
-          ...prev[story.id],
-          title: result.transcreatedTitle || story.title,
-          originalTitle: story.title,
-          transcreated_content: result.transcreatedText,
-          writingMode: result.writingMode,
-          localizedCountry: result.localizedCountry
-        }
-      }));
-    } catch (err) {
-      console.error("Transcreation error:", err);
-    } finally {
-      setIsTranscreating(prev => ({ ...prev, [story.id]: false }));
-    }
+    ...
   };
+  */
 
   const getStoryData = (storyIdx: number) => {
     const original = stories[storyIdx];
-
     if (!original) return null;
 
     const translation = getStoryContent(
@@ -234,7 +154,6 @@ export default function Notebook({
 
       // immutable originals
       originalTitle: original.title,
-      originalText: original.text_content,
 
       // localized presentation
       title: showOriginal
@@ -492,8 +411,10 @@ export default function Notebook({
         ) : (
           <FullScreenStory
             story={currentSelection!}
+            stories={stories}
+            localTranscreations={localTranscreations}
             onClose={() => setSelectedStory(null)}
-            onTranscreate={handleTranscreate}
+
             isTranscreating={isTranscreating[currentSelection!.id]}
             theme={theme}
             onThemeToggle={onThemeToggle}
@@ -554,6 +475,9 @@ export default function Notebook({
 }
 
 function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, globalPages }: any) {
+  // 1. Pull browser default language directly
+  const userLang = (navigator.language || 'en').split('-')[0].toLowerCase();
+
   if (!page) return null;
 
   if (page.type === 'toc') {
@@ -562,6 +486,7 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
         <h2 className="text-3xl md:text-4xl font-serif italic mb-12 border-b-2 border-stone-200 dark:border-stone-800 pb-6 text-ink dark:text-ink-dark">Ancestral Ledger</h2>
         <div className="space-y-10 flex-1">
           {stories.map((s: Story, idx: number) => {
+
             // Find the page index for this story
             const storyPageIndex = globalPages.findIndex((p: any) => p.type === 'story' && p.storyIndex === idx);
 
@@ -578,7 +503,7 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
               >
                 <span className="text-[10px] uppercase tracking-[0.4em] text-ink/40 dark:text-ink-dark/40 block mb-2">Record #{idx + 1}</span>
                 <h3 className="text-xl md:text-2xl font-serif italic group-hover:text-amber-700 dark:group-hover:text-amber-500 transition-colors uppercase tracking-tight leading-tight text-ink dark:text-ink-dark">
-                  {s.title}
+                  {s.translations?.[userLang]?.translatedTitle ?? s.title}
                 </h3>
                 <p className="text-xs text-ink/60 dark:text-ink-dark/60 italic mt-2 italic flex items-center gap-2">
                   <DynamicFlag countryCode={s.ISOcode || "UN"} />
@@ -609,7 +534,7 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
         <div className="absolute bottom-16 left-12 right-12 text-white">
           <span className="text-[10px] uppercase tracking-[0.5em] text-amber-400 mb-4 block opacity-0 group-hover:opacity-100 transition-opacity">Record Story</span>
-          <h2 className="text-3xl md:text-5xl font-serif italic drop-shadow-2xl leading-[1.1]">{story.title}</h2>
+          <h2 className="text-3xl md:text-5xl font-serif italic drop-shadow-2xl leading-[1.1]">{story.translations?.[userLang]?.translatedTitle ?? story.title}</h2>
           <div className="mt-6 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
             <span className="text-xs font-serif italic text-white/80">By {story.name}</span>
             <span className="w-1 h-1 bg-white/40 rounded-full" />
@@ -625,6 +550,8 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
 
 function FullScreenStory({
   story,
+  stories,
+  localTranscreations,
   onClose,
   onTranscreate,
   isTranscreating,
@@ -634,6 +561,8 @@ function FullScreenStory({
   setShowOriginal
 }: {
   story: Story,
+  stories: Story[],
+  localTranscreations: Record<string, Partial<Story>>,
   onClose: () => void,
   onTranscreate: (s: Story, l: string) => void,
   isTranscreating: boolean,
@@ -646,33 +575,35 @@ function FullScreenStory({
 }) {
   const [showLang, setShowLang] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [userLanguage] = useState(getUserLanguage());
+  // 1. Pull browser default language directly
+  const userLang = (navigator.language || 'en').split('-')[0].toLowerCase();
 
-  useEffect(() => {
+  // Retrieve raw original story from base array if available
+  const rawStory = stories?.find(s => s.id === story.id) || story;
 
-    console.log("[WRITING DEBUG]", {
+  // Translation object for user's browser language (e.g. story.translations?.ja or story.ja)
+  const translation = rawStory.translations?.[userLang] || (rawStory as any)?.[userLang] || getStoryContent(rawStory, userLang);
+  const localTrans = localTranscreations?.[rawStory.id];
 
-      title: story.title,
+  // 2. By default (showOriginal === false): show story.[language].transcreateContent / transcreated_content
+  // 3. When showOriginal button is pressed: show story.text_content
+  const activeTitle = showOriginal
+    ? (rawStory.title || story.title)
+    : (localTrans?.title || translation?.transcreatedTitle || translation?.translatedTitle || translation?.title || (rawStory as any)?.[userLang]?.transcreateTitle || rawStory.title);
 
-      userLanguage,
+  const activeText = showOriginal
+    ? (rawStory.text_content || story.text_content)
+    : (localTrans?.transcreated_content || translation?.transcreated_content || translation?.transcreateContent || translation?.translatedContent || translation?.content || (rawStory as any)?.[userLang]?.transcreateContent || rawStory.text_content);
 
-      writingMode: story.writingMode,
+  const activeWritingMode = showOriginal
+    ? "horizontal-tb"
+    : (localTrans?.writingMode || translation?.writingMode || (rawStory as any)?.[userLang]?.writingMode || (userLang === "ja" ? "vertical-rl" : "horizontal-tb"));
 
-      hasTranslation: !!story.transcreated_content,
-
-      contentPreview:
-        (story.text_content || "")
-          .substring(0, 80)
-
-    });
-
-  }, [
-    story,
-    userLanguage
-  ]);
+  const activeCountry = showOriginal
+    ? rawStory.country
+    : (localTrans?.localizedCountry || translation?.localizedCountry || (rawStory as any)?.[userLang]?.localizedCountry || rawStory.country);
 
   const [isSmallMobile, setIsSmallMobile] = useState(window.innerWidth < 480);
-
 
   useEffect(() => {
     const checkMobile = () => {
@@ -734,12 +665,14 @@ function FullScreenStory({
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 15 }}
-                className="absolute top-full right-0 mt-4 w-56 bg-stone-50 border border-stone-200 rounded-2xl shadow-2xl overflow-hidden p-2 flex flex-col gap-1 z-[120]"              >
+                className="absolute top-full right-0 mt-4 w-56 bg-stone-50 border border-stone-200 rounded-2xl shadow-2xl overflow-hidden p-2 flex flex-col gap-1 z-[120]"
+              >
                 <button
                   onClick={() => setShowOriginal(prev => !prev)}
-                  className="px-4 py-2 rounded-full bg-stone-200/50 dark:bg-stone-800/50 text-sm font-serif italic transition-all hover:scale-105"
+                  className="px-4 py-2.5 rounded-xl bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 text-sm font-serif font-medium flex items-center gap-2 transition-all shadow-md"
                 >
-                  {showOriginal ? "Read translation" : "Read original language"}
+                  <Globe className="w-4 h-4 shrink-0 text-amber-400 dark:text-stone-900" />
+                  <span>{showOriginal ? "Read in Browser Language" : "Read Original Language"}</span>
                 </button>
               </motion.div>
             )}
@@ -766,7 +699,7 @@ function FullScreenStory({
           transition={{ duration: 1.5, ease: "easeOut" }}
           src={story.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=2000'}
           className="w-full h-full object-cover"
-          alt={story.title}
+          alt={activeTitle}
           referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-parchment dark:from-parchment-dark via-transparent to-transparent" />
@@ -784,76 +717,80 @@ function FullScreenStory({
         >
           <span className="text-[12px] uppercase tracking-[0.6em] text-amber-600 dark:text-amber-500 font-bold mb-6 block text-center">Sacred Record</span>
           <div className="flex justify-center mb-6">
-
             <button
               onClick={() => { setShowOriginal(prev => !prev); }}
-              className="
-px-4 py-2
-rounded-full
-bg-stone-200
-dark:bg-stone-800
-font-serif
-italic
-text-sm
-hover:scale-105
-transition
-"
+              className="px-6 py-3 rounded-full bg-stone-900 text-stone-50 hover:bg-stone-800 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400 font-serif font-medium text-sm md:text-base shadow-xl flex items-center gap-2.5 transition-all hover:scale-105 active:scale-95 border border-stone-700 dark:border-amber-400"
             >
-              {showOriginal
-                ? "Read translation"
-                : "Read original language"
-              }
+              <Globe className="w-5 h-5 shrink-0 text-amber-400 dark:text-stone-900" />
+              <span>{showOriginal ? "Read in Browser Language" : "Read Original Language"}</span>
             </button>
-
           </div>
 
           <div className="mb-16 text-center space-y-4">
-
             <h1 className={cn(
               "font-serif italic text-ink dark:text-ink-dark leading-tight",
               !isMobile ? "text-4xl md:text-8xl" : "text-3xl"
             )}>
-              {showOriginal
-                ? story.originalTitle
-                : story.title}
+              {activeTitle}
             </h1>
-
           </div>
 
-          <div
-            className={cn(
-              "prose dark:prose-invert mx-auto font-serif text-ink dark:text-ink-dark",
-              !isMobile ? "prose-2xl leading-loose" : (isSmallMobile ? "text-[19px] leading-[1.65]" : "prose-lg leading-loose")
-            )}
-            style={{
-              writingMode:
-                showOriginal
-                  ? "horizontal-tb"
-                  : story.writingMode || "horizontal-tb",
-
-              textOrientation:
-                story.writingMode === "vertical-rl"
-                  ? "mixed"
-                  : undefined
-            }}
-          >
-            {(showOriginal
-              ? story.originalText
-              : story.text_content
-            )?.split("\n\n").map((para, i) => (
-              <motion.p
-                key={i}
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true, margin: "-100px" }}
+          {/* Dynamic Story Content Container for Horizontal vs Vertical Layouts */}
+          <div className="w-full flex justify-center items-center my-8">
+            {activeWritingMode === "vertical-rl" ? (
+              <div className="w-full overflow-x-auto custom-scrollbar flex justify-center py-6 px-4">
+                <div
+                  className={cn(
+                    "prose dark:prose-invert font-serif text-ink dark:text-ink-dark h-[60vh] max-h-[600px] min-h-[400px] flex flex-row-reverse items-start justify-center",
+                    !isMobile ? "prose-2xl" : "prose-lg"
+                  )}
+                  style={{
+                    writingMode: "vertical-rl",
+                    textOrientation: "mixed"
+                  }}
+                >
+                  {activeText?.split("\n\n").map((para, i) => (
+                    <motion.p
+                      key={i}
+                      initial={{ opacity: 0 }}
+                      whileInView={{ opacity: 1 }}
+                      viewport={{ once: true }}
+                      className={cn(
+                        "ink-in ml-10 my-0 leading-[2.2] tracking-wide text-start h-full shrink-0",
+                        !isMobile ? "text-2xl md:text-3xl" : "text-lg"
+                      )}
+                    >
+                      {para}
+                    </motion.p>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div
                 className={cn(
-                  "mb-12 ink-in text-justify leading-[2.0]",
-                  !isMobile ? "text-2xl md:text-3xl" : "text-lg"
+                  "prose dark:prose-invert max-w-3xl mx-auto w-full font-serif text-ink dark:text-ink-dark flex flex-col items-center",
+                  !isMobile ? "prose-2xl leading-loose" : (isSmallMobile ? "text-[19px] leading-[1.65]" : "prose-lg leading-loose")
                 )}
+                style={{
+                  writingMode: "horizontal-tb"
+                }}
               >
-                {para}
-              </motion.p>
-            ))}
+                {activeText?.split("\n\n").map((para, i) => (
+                  <motion.p
+                    key={i}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true, margin: "-100px" }}
+                    className={cn(
+                      "mb-12 ink-in text-justify w-full leading-[2.0]",
+                      !isMobile ? "text-2xl md:text-3xl" : "text-lg"
+                    )}
+                  >
+                    {para}
+                  </motion.p>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-32 pt-16 border-t border-stone-400 dark:border-stone-600 text-center">
@@ -869,7 +806,7 @@ transition
             )}>
               <DynamicFlag countryCode={story.ISOcode || "UN"} />
               <span className="text-ink dark:text-ink-dark">
-                {story.localizedCountry || story.country}
+                {activeCountry}
               </span>
             </div>
             <div className="mt-12 opacity-30 text-[10px] font-mono uppercase tracking-[1em]">END_OF_RECORD</div>

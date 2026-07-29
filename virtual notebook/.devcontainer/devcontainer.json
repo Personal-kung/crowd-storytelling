@@ -1,0 +1,50 @@
+{
+  "name": "Virtual Notebook - Crowd Storytelling",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-20-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.formatOnSave": true,
+        "editor.tabSize": 2,
+        "typescript.tsdk": "node_modules/typescript/lib"
+      },
+      "extensions": [
+        "bradlc.vscode-tailwindcss",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "formulahendry.auto-rename-tag",
+        "eamodio.gitlens",
+        "bierner.markdown-preview-github-styles"
+      ]
+    }
+  },
+  "forwardPorts": [3000, 4000, 5001, 8080, 9099],
+  "portsAttributes": {
+    "3000": {
+      "label": "Vite Dev Server",
+      "onAutoForward": "openBrowser"
+    },
+    "4000": {
+      "label": "Firebase Emulator Suite UI",
+      "onAutoForward": "ignore"
+    },
+    "5001": {
+      "label": "Firebase Functions Emulator",
+      "onAutoForward": "ignore"
+    },
+    "8080": {
+      "label": "Firestore Emulator",
+      "onAutoForward": "ignore"
+    },
+    "9099": {
+      "label": "Firebase Auth Emulator",
+      "onAutoForward": "ignore"
+    }
+  },
+  "postCreateCommand": "npm install && (cd functions && npm install)",
+  "remoteUser": "node"
+}

@@ -11,7 +11,7 @@ export function getUserLanguage(): string {
         .toLowerCase();
 }
 
-
+//if translation is found, load only the original and translated
 export function getStoryContent(
     story: any,
     language: string

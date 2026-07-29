@@ -40,39 +40,24 @@ export default function App() {
   }, [stories]);
 
   useEffect(() => {
-
-  async function loadStories() {
-
-    try {
-
-      const fetchedStories = await getApprovedStories();
-      setStories(fetchedStories);
-    } catch(err) {
-
-      console.error(
-        "Story loading error:",
-        err
-      );
-
-
-      setError(
-        "Failed to fetch the vessel's records."
-      );
-
-
-    } finally {
-
-      setLoading(false);
-
+    async function loadStories() {
+      try {
+        const fetchedStories = await getApprovedStories();
+        setStories(fetchedStories);
+      } catch (err) {
+        console.error(
+          "Story loading error:",
+          err
+        );
+        setError(
+          "Failed to fetch the vessel's records."
+        );
+      } finally {
+        setLoading(false);
+      }
     }
-
-  }
-
-
-  loadStories();
-
-
-}, []);
+    loadStories();
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prev => {
@@ -85,10 +70,11 @@ export default function App() {
   const localizedStories = useMemo(() => {
     return stories.map(story => ({
       ...story,
-      title: getStoryContent(story, userLanguage).title,
-      text_content: getStoryContent(story, userLanguage).content,
-      writingMode: getStoryContent(story, userLanguage).writingMode,
-      localizedCountry: getStoryContent(story, userLanguage).localizedCountry
+      title: story.title,
+      text_content: story.text_content,
+      writingMode: story.writingMode,
+      localizedCountry: story.localizedCountry,
+      translations: story.translations
     }));
 
   }, [
