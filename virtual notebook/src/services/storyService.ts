@@ -22,10 +22,6 @@ async function resolveCoverImage(
 
   console.group("resolveCoverImage");
 
-  console.log("coverImage =", coverImage);
-
-  console.log("bucket =", storage.app.options.storageBucket);
-
   if (!coverImage) {
     console.log("No cover image");
     console.groupEnd();

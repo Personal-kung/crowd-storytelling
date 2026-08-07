@@ -126,11 +126,27 @@ export default function Notebook({
   };
 
   const nextPage = () => {
-    if (currentPage < globalPages.length - 2) goToPage(currentPage + 2);
+    if (isMobile) {
+      if (currentPage < globalPages.length - 1) {
+        goToPage(currentPage + 1);
+      }
+    } else {
+      if (currentPage < globalPages.length - 2) {
+        goToPage(currentPage + 2);
+      }
+    }
   };
 
   const prevPage = () => {
-    if (currentPage > 0) goToPage(currentPage - 2);
+    if (isMobile) {
+      if (currentPage > 0) {
+        goToPage(currentPage - 1);
+      }
+    } else {
+      if (currentPage > 0) {
+        goToPage(currentPage - 2);
+      }
+    }
   };
 
   /*
@@ -182,6 +198,7 @@ export default function Notebook({
     if (!stories.length) return;
     stories.forEach(story => {
       const content = getStoryContent(story, userLanguage);
+      console.log("[STORY CONTENT]", story.title, userLanguage, content);
       if (!content.translated) {
         console.log("[TRANSLATION MISSING]", story.title, userLanguage);
       }
@@ -227,7 +244,12 @@ export default function Notebook({
 
   return (
     <div
-      className="relative w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden"
+      className={cn(
+        "relative overflow-hidden",
+        isMobile
+          ? "fixed inset-0 w-screen h-screen"
+          : "w-full h-full flex items-center justify-center p-4 md:p-12"
+      )}
       onMouseEnter={() => setHoverStartTime(Date.now())}
       onMouseLeave={() => {
         if (hoverStartTime) {
@@ -467,8 +489,28 @@ export default function Notebook({
           box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.4), 
                       0 30px 60px -30px rgba(0, 0, 0, 0.5);
         }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+        /* Horizontal Japanese reading scrollbar */
+        .custom-scrollbar::-webkit-scrollbar:horizontal {
+          height: 8px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+          background: rgba(120, 90, 60, 0.35);
+          border-radius: 10px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track:horizontal {
+          background: rgba(120, 90, 60, 0.08);
+          border-radius: 10px;
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:horizontal {
+          background: rgba(220, 180, 120, 0.35);
+        }
+
+        .dark .custom-scrollbar::-webkit-scrollbar-track:horizontal {
+          background: rgba(255,255,255,0.08);
+        }
       `}</style>
     </div>
   );
@@ -519,29 +561,95 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
   const story = getStoryData(page.storyIndex);
   if (!story) return null;
 
+  // Detect mobile locally
+  const isMobile = window.innerWidth < 768;
+
+  if (isMobile) {
+    return (
+      <motion.div
+        whileTap={{ scale: 0.985 }}
+        onClick={() => onSelect(story)}
+        className="relative flex h-full w-full flex-col overflow-hidden bg-stone-50 dark:bg-stone-900 cursor-pointer"
+      >
+        {/* Hero */}
+        <div className="relative h-[58%] w-full shrink-0 overflow-hidden">
+          <JITImage
+            src={
+              story.coverImage ||
+              "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=1200"
+            }
+            alt={story.title}
+            className="absolute inset-0 h-full w-full"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        </div>
+
+        {/* Information */}
+        <div className="flex flex-1 flex-col justify-between px-8 py-8">
+          <div className="text-center">
+            <span className="block text-[11px] uppercase tracking-[0.45em] text-stone-500 mb-4">
+              Record Story
+            </span>
+
+            <h2 className="font-serif italic text-3xl leading-tight text-stone-900 dark:text-stone-100">
+              {story.translations?.[userLang]?.translatedTitle ?? story.title}
+            </h2>
+
+            <p className="mt-5 text-base italic text-stone-600 dark:text-stone-400">
+              By {story.name}
+            </p>
+
+            <div className="mt-6 flex items-center justify-center gap-3 text-stone-700 dark:text-stone-300 uppercase tracking-widest text-sm">
+              <DynamicFlag countryCode={story.ISOcode || "UN"} />
+              <span>{story.localizedCountry || story.ISOcode}</span>
+            </div>
+          </div>
+
+          <div className="pt-8 border-t border-stone-300 dark:border-stone-700">
+            <p className="text-center text-xs uppercase tracking-[0.4em] text-stone-500">
+              Tap anywhere to read
+            </p>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ===== Desktop (unchanged) =====
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
       onClick={() => onSelect(story)}
       className="flex flex-col h-full bg-stone-50 md:-m-16 dark:bg-stone-900 border-[16px] border-parchment dark:border-parchment-dark shadow-2xl overflow-hidden relative cursor-pointer group"
     >
-      <div className="flex-1 relative">
-        <JITImage
-          src={story.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=1000'}
-          className="absolute inset-0 w-full h-full transition-transform duration-[20s] group-hover:scale-125"
-          alt={story.title}
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
-        <div className="absolute bottom-16 left-12 right-12 text-white">
-          <span className="text-[10px] uppercase tracking-[0.5em] text-amber-400 mb-4 block opacity-0 group-hover:opacity-100 transition-opacity">Record Story</span>
-          <h2 className="text-3xl md:text-5xl font-serif italic drop-shadow-2xl leading-[1.1]">{story.translations?.[userLang]?.translatedTitle ?? story.title}</h2>
-          <div className="mt-6 flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-all transform translate-y-4 group-hover:translate-y-0">
-            <span className="text-xs font-serif italic text-white/80">By {story.name}</span>
-            <span className="w-1 h-1 bg-white/40 rounded-full" />
-            <span className="text-xs font-serif italic text-white inline-flex items-center gap-2">
-              <DynamicFlag countryCode={story.ISOcode} /> {story.localizedCountry || story.ISOcode}
-            </span>
-          </div>
+      <JITImage
+        src={
+          story.coverImage ||
+          "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=1000"
+        }
+        className="absolute inset-0 w-full h-full transition-transform duration-[20s] group-hover:scale-125"
+        alt={story.title}
+      />
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+      <div className="relative z-10 mt-auto p-8 text-white">
+        <div className="text-xs uppercase tracking-[0.4em] opacity-80">
+          Record Story
+        </div>
+
+        <h2 className="font-serif italic text-4xl mt-3">
+          {story.translations?.[userLang]?.translatedTitle ?? story.title}
+        </h2>
+
+        <p className="mt-4 italic text-lg">
+          By {story.name}
+        </p>
+
+        <div className="mt-6 flex items-center gap-3 uppercase tracking-widest text-sm">
+          <DynamicFlag countryCode={story.ISOcode || "UN"} />
+          <span>{story.localizedCountry || story.ISOcode}</span>
         </div>
       </div>
     </motion.div>
@@ -597,13 +705,40 @@ function FullScreenStory({
 
   const activeWritingMode = showOriginal
     ? "horizontal-tb"
-    : (localTrans?.writingMode || translation?.writingMode || (rawStory as any)?.[userLang]?.writingMode || (userLang === "ja" ? "vertical-rl" : "horizontal-tb"));
+    : (
+      localTrans?.writingMode ||
+      translation?.writingMode ||
+      (rawStory as any)?.[userLang]?.writingMode ||
+      "horizontal-tb"
+    );
 
   const activeCountry = showOriginal
     ? rawStory.country
     : (localTrans?.localizedCountry || translation?.localizedCountry || (rawStory as any)?.[userLang]?.localizedCountry || rawStory.country);
 
   const [isSmallMobile, setIsSmallMobile] = useState(window.innerWidth < 480);
+
+  const verticalJapaneseText = useMemo(() => {
+    if (activeWritingMode !== "vertical-rl") return "";
+
+    return activeText
+      ?.split("\n\n")
+      .map(p => p.trim())
+      .filter(Boolean)
+      .join("\n\n");
+
+  }, [activeText, activeWritingMode]);
+
+  const verticalScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (activeWritingMode === "vertical-rl" && verticalScrollRef.current) {
+      const container = verticalScrollRef.current;
+
+      // Start at the right side for Japanese reading order
+      container.scrollLeft = container.scrollWidth;
+    }
+  }, [activeWritingMode, verticalJapaneseText]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -689,27 +824,46 @@ function FullScreenStory({
       </div>
 
       {/* Hero Image */}
-      <div className={cn(
-        "relative overflow-hidden shrink-0 block",
-        !isMobile ? "w-full h-[70vh]" : "w-full h-[300px]"
-      )}>
+      <div
+        className={cn(
+          "relative overflow-hidden shrink-0",
+          !isMobile ? "w-full h-[65vh]" : "w-full h-[300px]"
+        )}
+      >
         <motion.img
-          initial={{ scale: 1.1 }}
+          initial={{ scale: 1.08 }}
           animate={{ scale: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-          src={story.coverImage || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=2000'}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+          src={
+            story.coverImage ||
+            "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=2000"
+          }
           className="w-full h-full object-cover"
           alt={activeTitle}
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-parchment dark:from-parchment-dark via-transparent to-transparent" />
+
+        <div
+          className="
+      absolute inset-0 
+      bg-gradient-to-t 
+      from-parchment 
+      dark:from-parchment-dark 
+      via-transparent 
+      to-transparent
+    "
+        />
       </div>
 
       {/* Content Section */}
-      <div className={cn(
-        "relative z-10 custom-scrollbar block",
-        !isMobile ? "max-w-4xl mx-auto px-8 pb-32 -mt-32" : "flex-1 overflow-y-auto px-6 py-10"
-      )}>
+      <div
+        className={cn(
+          "relative z-10",
+          !isMobile
+            ? "max-w-4xl mx-auto px-8 pb-32 -mt-24"
+            : "flex-1 overflow-y-auto px-6 py-10"
+        )}
+      >
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -735,62 +889,87 @@ function FullScreenStory({
             </h1>
           </div>
 
-          {/* Dynamic Story Content Container for Horizontal vs Vertical Layouts */}
-          <div className="w-full flex justify-center items-center my-8">
+          {/* Story Body */}
+          <div className="w-full flex justify-center my-12">
+
             {activeWritingMode === "vertical-rl" ? (
-              <div className="w-full overflow-x-auto custom-scrollbar flex justify-center py-6 px-4">
+              <div
+                ref={verticalScrollRef}
+                className={cn(
+                  "w-full overflow-x-auto overflow-y-hidden custom-scrollbar",
+                  isMobile ? "h-full" : "h-[70vh]"
+                )}
+              >
                 <div
                   className={cn(
-                    "prose dark:prose-invert font-serif text-ink dark:text-ink-dark h-[60vh] max-h-[600px] min-h-[400px] flex flex-row-reverse items-start justify-center",
-                    !isMobile ? "prose-2xl" : "prose-lg"
+                    "font-serif text-ink dark:text-ink-dark",
+                    !isMobile ? "text-3xl" : "text-xl"
                   )}
                   style={{
                     writingMode: "vertical-rl",
-                    textOrientation: "mixed"
+                    textOrientation: "mixed",
+                    height: isMobile ? "100%" : "80%",
+                    lineHeight: "2.4",
+                    whiteSpace: "pre-wrap",
                   }}
                 >
-                  {activeText?.split("\n\n").map((para, i) => (
-                    <motion.p
-                      key={i}
-                      initial={{ opacity: 0 }}
-                      whileInView={{ opacity: 1 }}
-                      viewport={{ once: true }}
-                      className={cn(
-                        "ink-in ml-10 my-0 leading-[2.2] tracking-wide text-start h-full shrink-0",
-                        !isMobile ? "text-2xl md:text-3xl" : "text-lg"
-                      )}
-                    >
-                      {para}
-                    </motion.p>
-                  ))}
+                  {verticalJapaneseText}
                 </div>
               </div>
             ) : (
-              <div
-                className={cn(
-                  "prose dark:prose-invert max-w-3xl mx-auto w-full font-serif text-ink dark:text-ink-dark flex flex-col items-center",
-                  !isMobile ? "prose-2xl leading-loose" : (isSmallMobile ? "text-[19px] leading-[1.65]" : "prose-lg leading-loose")
-                )}
+
+              /*
+                Western languages:
+                English
+                French
+                Spanish
+                Italian
+                Thai
+                Korean
+              */
+
+              <article
+                className="
+      prose
+      dark:prose-invert
+      max-w-3xl
+      mx-auto
+      font-serif
+      text-ink
+      dark:text-ink-dark
+    "
                 style={{
                   writingMode: "horizontal-tb"
                 }}
               >
-                {activeText?.split("\n\n").map((para, i) => (
-                  <motion.p
-                    key={i}
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true, margin: "-100px" }}
-                    className={cn(
-                      "mb-12 ink-in text-justify w-full leading-[2.0]",
-                      !isMobile ? "text-2xl md:text-3xl" : "text-lg"
-                    )}
-                  >
-                    {para}
-                  </motion.p>
-                ))}
-              </div>
+
+                {activeText
+                  ?.split("\n\n")
+                  .map((para, index) => (
+
+                    <motion.p
+                      key={index}
+                      initial={{ opacity: 0, y: 15 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{
+                        delay: index * 0.05
+                      }}
+                      className={cn(
+                        "mb-12",
+                        !isMobile
+                          ? "text-2xl leading-loose"
+                          : "text-lg leading-relaxed"
+                      )}
+                    >
+                      {para}
+                    </motion.p>
+
+                  ))}
+
+              </article>
+
             )}
+
           </div>
 
           <div className="mt-32 pt-16 border-t border-stone-400 dark:border-stone-600 text-center">
