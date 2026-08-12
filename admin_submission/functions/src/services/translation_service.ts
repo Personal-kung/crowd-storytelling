@@ -21,14 +21,27 @@ export class TranslationService {
     sourceLanguage: string,
     targetLanguage: string,
   ): Promise<object> {
-    const apiKey =
-      process.env.GEMINI_API_KEY;
+    // const apiKey =
+    //   process.env.GEMINI_API_KEY;
+
+    // if (!apiKey) {
+    //   throw new Error(
+    //     "Missing GEMINI_API_KEY",
+    //   );
+    // }
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      throw new Error(
-        "Missing GEMINI_API_KEY",
-      );
+      throw new Error("Missing GEMINI_API_KEY");
     }
+
+    console.log("Gemini API key diagnostics", {
+      present: true,
+      length: apiKey.length,
+      startsWithAIza: apiKey.startsWith("AIza"),
+      hasLeadingWhitespace: apiKey !== apiKey.trimStart(),
+      hasTrailingWhitespace: apiKey !== apiKey.trimEnd(),
+    });
 
     const ai =
       new GoogleGenAI({
@@ -93,9 +106,9 @@ ${content}
         "Gemini translation request failed",
         {
           name:
-            error instanceof Error ? error.name: "unknown",
+            error instanceof Error ? error.name : "unknown",
           message:
-            error instanceof Error ? error.message: String(error),
+            error instanceof Error ? error.message : String(error),
           error,
         },
       );
