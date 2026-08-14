@@ -6,12 +6,11 @@
 
 This contains everything you need to run your app locally.
 
-View your app in AI Studio: https://ai.studio/apps/279d497f-2fc6-4f26-b14d-3dc3a18da36b
+View your app in AI Studio: <https://ai.studio/apps/279d497f-2fc6-4f26-b14d-3dc3a18da36b>
 
 ## Run Locally
 
 **Prerequisites:**  Node.js
-
 
 1. Install dependencies:
    `npm install`
@@ -19,9 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/279d497f-2fc6-4f26-b14d-3dc3a
 3. Run the app:
    `npm run dev`
 
-
 to publish
+
 ```
 npm run build
 firebase deploy --only hosting
 ```
+
+![portrait](./media/2026-08-14%2016.20.32%20global-notebook.web.app%208de204cbc2a5.jpg)
+![index](./media/2026-08-14%2016.20.42%20global-notebook.web.app%2068a4d29430cc.jpg)
