@@ -1,3 +1,7 @@
-# admin_submission
+# Admin Submission — Crowd Storytelling Platform
 
-A new Flutter project.
+Welcome to **Admin Submission**, the administration and content curation portal for the Global Crowd Storytelling initiative. This platform is designed to preserve human narrative heritage from across the globe by transforming physical, handwritten stories into culturally enriched digital publications. Through an intuitive mobile and web interface, field contributors can capture handwritten manuscripts, enabling communities everywhere to document local lore, personal histories, and timeless tales that might otherwise be lost to time.
+
+At the core of the application lies an intelligent backend powered by Flutter, Firebase Cloud Functions Gen 2, Google Cloud Vision, and Google Gemini AI. When story pages are submitted, Cloud Vision extracts raw handwritten text, which is then dynamically corrected for context and grammar using `gemini-3-flash-preview`. Upon administrative review and approval, the system automatically triggers localized multi-language translation services and generates striking 9:16 artwork via `gemini-2.5-flash-image`—storing all assets in Firestore and Firebase Storage for instant global accessibility.
+
+Whether you are a developer passionate about AI-driven storytelling, an administrator curating global narratives, or an open-source contributor eager to expand cross-cultural accessibility, Admin Submission provides a robust foundation for community engagement. We invite you to explore the codebase, enhance our OCR and AI translation pipelines, and join us in building a vibrant, connected world where every voice and handwritten story can be shared and celebrated.
