@@ -1,0 +1,192 @@
+{
+  "project_metadata": {
+    "name": "admin_submission",
+    "description": "Admin Submission & Story Curation Portal for Global Crowd Storytelling Platform",
+    "version": "1.0.0",
+    "tech_stack": {
+      "frontend": {
+        "framework": "Flutter (Material 3)",
+        "state_management": "Flutter Riverpod",
+        "local_database": "Isar Database (offline-first caching)",
+        "authentication": "Firebase Auth"
+      },
+      "backend": {
+        "runtime": "Firebase Cloud Functions Gen 2 (Node.js 22, TypeScript)",
+        "database": "Cloud Firestore",
+        "storage": "Firebase Storage",
+        "emulators": "Firebase Emulator Suite"
+      },
+      "ai_services": {
+        "text_correction": "Google Gemini 3 Flash Preview (gemini-3-flash-preview)",
+        "image_generation": "Google Gemini 2.5 Flash Image (gemini-2.5-flash-image)",
+        "ocr": "Google Cloud Vision API",
+        "sdk": "@google/genai",
+        "secret_management": "Firebase Secret Manager (GEMINI_API_KEY)"
+      }
+    }
+  },
+  "codespace_config": {
+    "devcontainer_file": ".devcontainer/devcontainer.json",
+    "base_image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+    "features": [
+      "ghcr.io/devcontainers/features/flutter:1",
+      "ghcr.io/devcontainers-extra/features/firebase-cli:1"
+    ],
+    "vscode_extensions": [
+      "Dart-Code.flutter",
+      "Dart-Code.dart-code",
+      "dbaeumer.vscode-eslint",
+      "esbenp.prettier-vscode",
+      "tomboy-rip.firebase-snippets",
+      "eamodio.gitlens"
+    ],
+    "forwarded_ports": {
+      "4000": "Firebase Emulator Suite UI",
+      "5001": "Firebase Cloud Functions",
+      "8080": "Cloud Firestore Emulator",
+      "9099": "Firebase Auth Emulator",
+      "9199": "Firebase Storage Emulator"
+    },
+    "post_create_command": "npm --prefix functions install && flutter pub get"
+  },
+  "directory_structure": {
+    "root": "/admin_submission",
+    "manifest": [
+      ".devcontainer/devcontainer.json",
+      "README.md",
+      "logs.md",
+      "aux.md",
+      "pubspec.yaml",
+      "firebase.json",
+      "firestore.rules",
+      ".firebaserc",
+      "lib/main.dart",
+      "lib/app.dart",
+      "lib/firebase_options.dart",
+      "lib/core/database/isar_service.dart",
+      "lib/core/auth/login_screen.dart",
+      "lib/features/capture/presentation/capture_screen.dart",
+      "lib/features/ocr/services/",
+      "lib/features/review/story_review_screen.dart",
+      "functions/package.json",
+      "functions/tsconfig.json",
+      "functions/src/index.ts",
+      "functions/src/services/gemini_service.ts",
+      "functions/src/services/vision_service.ts",
+      "functions/src/services/translation_service.ts",
+      "functions/src/services/cover_image_service.ts",
+      "functions/src/services/language_service.ts"
+    ]
+  },
+  "backend_apis_and_triggers": [
+    {
+      "name": "processStoryOCR",
+      "type": "onCall (HTTPS Callable)",
+      "secrets": ["GEMINI_API_KEY"],
+      "input": {
+        "images": "string[] (Base64 encoded page images)"
+      },
+      "output": {
+        "success": "boolean",
+        "rawText": "string",
+        "correctedText": "string",
+        "pages": [
+          {
+            "pageNumber": "number",
+            "text": "string"
+          }
+        ],
+        "processingTimeMs": "number"
+      },
+      "description": "Extracts handwritten text using Cloud Vision and applies context/grammar correction with gemini-3-flash-preview."
+    },
+    {
+      "name": "onStoryPublished",
+      "type": "onDocumentUpdated (Firestore Trigger)",
+      "path": "stories/{storyId}",
+      "secrets": ["GEMINI_API_KEY"],
+      "condition": "before.status != 'approved' && after.status == 'approved'",
+      "actions": [
+        "Automatically generates English ('en') translation via TranslationService",
+        "Generates 9:16 cover artwork via CoverImageService (gemini-2.5-flash-image) and uploads to covers/{storyId}.png"
+      ]
+    },
+    {
+      "name": "generateTranslation",
+      "type": "onCall (HTTPS Callable)",
+      "secrets": ["GEMINI_API_KEY"],
+      "input": {
+        "storyId": "string",
+        "language": "string (default: 'en')"
+      },
+      "output": {
+        "success": "boolean",
+        "language": "string"
+      },
+      "firestore_updates": "stories/{storyId}.translations.{language} = { localizedCountry, translatedTitle, translatedContent }"
+    },
+    {
+      "name": "generateCoverImage",
+      "type": "onCall (HTTPS Callable)",
+      "secrets": ["GEMINI_API_KEY"],
+      "input": {
+        "storyId": "string"
+      },
+      "output": {
+        "success": "boolean",
+        "path": "string (Storage URI)"
+      }
+    },
+    {
+      "name": "listGeminiModels",
+      "type": "onCall (HTTPS Callable)",
+      "secrets": ["GEMINI_API_KEY"],
+      "output": {
+        "models": "string[]"
+      }
+    }
+  ],
+  "firestore_data_model": {
+    "collection": "stories",
+    "document_schema": {
+      "title": "string (Original story title)",
+      "text_content": "string (OCR-corrected main story text)",
+      "country": "string (Country of origin)",
+      "sourceLanguage": "string (Original language)",
+      "status": "string ('draft' | 'pending_review' | 'approved')",
+      "translations": {
+        "{lang_code}": {
+          "localizedCountry": "string",
+          "translatedTitle": "string",
+          "translatedContent": "string"
+        }
+      },
+      "coverImage": {
+        "path": "string (Firebase Storage path: covers/{storyId}.png)",
+        "generatedAt": "timestamp"
+      }
+    }
+  },
+  "feature_expansion_roadmap": [
+    {
+      "feature_id": "FEAT-01",
+      "title": "Automated Multi-Language Fallback & On-Demand Request",
+      "description": "Trigger translation dynamically when a public reader requests a story in a language not yet present in Firestore."
+    },
+    {
+      "feature_id": "FEAT-02",
+      "title": "Translation Status Tracking",
+      "description": "Add translationStatus map in Firestore document (e.g., { ja: 'completed', fr: 'pending' }) to support async queueing."
+    },
+    {
+      "feature_id": "FEAT-03",
+      "title": "Audio Narrative Generation (Text-to-Speech)",
+      "description": "Integrate Google Cloud TTS or Gemini Audio generation to produce multi-lingual audiobooks for stories."
+    },
+    {
+      "feature_id": "FEAT-04",
+      "title": "Advanced Admin Review Workflow & Quality Scores",
+      "description": "Add side-by-side diffing, AI confidence scores for OCR/Translation, and batch publishing controls in Flutter UI."
+    }
+  ]
+}

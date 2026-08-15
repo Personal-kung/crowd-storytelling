@@ -2,14 +2,14 @@ import {
   HttpsError,
   onCall,
 } from "firebase-functions/v2/https";
-import {logger} from "firebase-functions";
-import {GeminiService} from "./services/gemini_service";
-import {VisionService} from "./services/vision_service";
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
-import {TranslationService} from "./services/translation_service";
-import {CoverImageService} from "./services/cover_image_service";
-import {initializeApp} from "firebase-admin/app";
-import {getFirestore} from "firebase-admin/firestore";
+import { logger } from "firebase-functions";
+import { GeminiService } from "./services/gemini_service";
+import { VisionService } from "./services/vision_service";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { TranslationService } from "./services/translation_service";
+import { CoverImageService } from "./services/cover_image_service";
+import { initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 initializeApp();
 const coverImageService = new CoverImageService();
@@ -284,7 +284,7 @@ export const generateCoverImage = onCall(
     secrets: ["GEMINI_API_KEY"],
   },
   async (request) => {
-    const {storyId} =
+    const { storyId } =
       request.data;
 
     if (!storyId) {
@@ -379,7 +379,7 @@ export const listGeminiModels =
       secrets: ["GEMINI_API_KEY"],
     },
     async () => {
-      const {GoogleGenAI} =
+      const { GoogleGenAI } =
         await import("@google/genai");
 
       const ai =
@@ -388,7 +388,7 @@ export const listGeminiModels =
             process.env.GEMINI_API_KEY,
         });
 
-      const models:string[] = [];
+      const models: string[] = [];
 
       for await (const model of await ai.models.list()) {
         models.push(
@@ -401,3 +401,160 @@ export const listGeminiModels =
       };
     },
   );
+
+export const generateIntroTranslation = onCall(
+  {
+    secrets: ["GEMINI_API_KEY"],
+  },
+  async (request) => {
+    const { language = "en" } = request.data || {};
+    const langCode = String(language).toLowerCase().trim();
+
+    if (!langCode) {
+      throw new HttpsError(
+        "invalid-argument",
+        "language is required",
+      );
+    }
+
+    const introRef = getFirestore()
+      .collection("stories")
+      .doc("Intro");
+
+    const snap = await introRef.get();
+
+    if (!snap.exists) {
+      throw new HttpsError(
+        "not-found",
+        "Intro document not found",
+      );
+    }
+
+    const docData = snap.data();
+
+    if (!docData) {
+      throw new HttpsError(
+        "internal",
+        "Intro document contains no data",
+      );
+    }
+
+    // Existing translation → return immediately.
+    if (typeof docData[langCode] === "string" &&
+      docData[langCode].trim()) {
+      logger.info(
+        "Intro translation already exists",
+        { language: langCode },
+      );
+
+      return {
+        translation: docData[langCode],
+      };
+    }
+
+    // English is the canonical source language.
+    const englishSource = docData["en"];
+
+    if (
+      typeof englishSource !== "string" ||
+      !englishSource.trim()
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Intro.en is missing from Firestore",
+      );
+    }
+
+    // English requires no Gemini call.
+    if (langCode === "en") {
+      return {
+        translation: englishSource,
+      };
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      throw new HttpsError(
+        "internal",
+        "GEMINI_API_KEY is not configured",
+      );
+    }
+
+    const { GoogleGenAI } = await import("@google/genai");
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      apiVersion: "v1beta",
+    });
+
+    const prompt = `
+Act as a "Transcreator" for an Ancestral Vessel.
+
+Transcreate the following introduction from English into ${langCode}.
+
+CRITICAL INSTRUCTIONS:
+- Preserve the poetic, reflective, and dignified tone.
+- Preserve exactly 3 paragraphs.
+- Preserve the meaning and emotional nuance.
+- Do not add preamble, commentary, titles, or quotation marks.
+- Return ONLY the transcreated text.
+- Separate the three paragraphs with double newlines.
+
+Original Intro:
+
+${englishSource}
+`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+
+      const translatedIntro =
+        response.text?.trim();
+
+      if (!translatedIntro) {
+        throw new Error(
+          "Gemini returned an empty translation",
+        );
+      }
+
+      // Intro translations are horizontal-tb by design.
+      // No writingMode field is stored.
+      await introRef.set(
+        {
+          [langCode]: translatedIntro,
+        },
+        {
+          merge: true,
+        },
+      );
+
+      logger.info(
+        "Intro translation generated and stored",
+        {
+          language: langCode,
+        },
+      );
+
+      return {
+        translation: translatedIntro,
+      };
+    } catch (error) {
+      logger.error(
+        "Intro translation failed",
+        {
+          language: langCode,
+          error,
+        },
+      );
+
+      throw new HttpsError(
+        "internal",
+        "Intro translation generation failed",
+      );
+    }
+  },
+);

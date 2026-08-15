@@ -1,0 +1,56 @@
+{
+  "name": "Admin Submission & Crowd Storytelling Codespace",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/flutter:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers-extra/features/firebase-cli:1": {
+      "version": "latest"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "Dart-Code.flutter",
+        "Dart-Code.dart-code",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "tomboy-rip.firebase-snippets",
+        "eamodio.gitlens"
+      ],
+      "settings": {
+        "dart.flutterSdkPath": "/usr/local/sdks/flutter",
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        }
+      }
+    }
+  },
+  "forwardPorts": [4000, 5001, 8080, 9099, 9199],
+  "portsAttributes": {
+    "4000": {
+      "label": "Firebase Emulator Suite UI",
+      "onAutoForward": "notify"
+    },
+    "5001": {
+      "label": "Firebase Cloud Functions",
+      "onAutoForward": "ignore"
+    },
+    "8080": {
+      "label": "Firestore Emulator",
+      "onAutoForward": "ignore"
+    },
+    "9099": {
+      "label": "Firebase Auth Emulator",
+      "onAutoForward": "ignore"
+    },
+    "9199": {
+      "label": "Firebase Storage Emulator",
+      "onAutoForward": "ignore"
+    }
+  },
+  "postCreateCommand": "npm --prefix functions install && flutter pub get",
+  "remoteUser": "node"
+}
