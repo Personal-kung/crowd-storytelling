@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Story } from '../types';
 import { ChevronLeft, ChevronRight, X, BookOpen, Loader2, Globe, Moon, Sun, ArrowLeft, Bookmark } from 'lucide-react';
 import { transcreateStory } from '../services/transcreationService';
@@ -9,8 +9,9 @@ import { countryCodeToEmoji } from '../services/countryService';
 import { heartbeat, InteractionType } from '../services/HeartbeatService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getUserLanguage, getStoryContent } from '../services/languageService';
-
+import { getUserLanguage, getStoryContent, getOriginalWritingMode, getLocalizedWritingMode } from '../services/languageService';
+import { getIntro } from '../services/introService';
+import ReactMarkdown from 'react-markdown';
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -52,6 +53,7 @@ const DynamicFlag = ({ countryCode }: { countryCode?: string }) => {
 
 interface NotebookProps {
   stories: Story[];
+  sharedStory?: Story | null;
   globalPages: any[];
   theme: 'light' | 'dark';
   onThemeToggle: () => void;
@@ -63,6 +65,7 @@ interface NotebookProps {
 
 export default function Notebook({
   stories,
+  sharedStory,
   globalPages,
   theme,
   onThemeToggle,
@@ -126,12 +129,19 @@ export default function Notebook({
   };
 
   const nextPage = () => {
+    if (currentPage === 0 && sharedStory) {
+      setSelectedStory(sharedStory);
+      goToPage(1);
+      return;
+    }
     if (isMobile) {
       if (currentPage < globalPages.length - 1) {
         goToPage(currentPage + 1);
       }
     } else {
-      if (currentPage < globalPages.length - 2) {
+      if (currentPage === 0) {
+        goToPage(1);
+      } else if (currentPage < globalPages.length - 2) {
         goToPage(currentPage + 2);
       }
     }
@@ -143,7 +153,9 @@ export default function Notebook({
         goToPage(currentPage - 1);
       }
     } else {
-      if (currentPage > 0) {
+      if (currentPage === 1) {
+        goToPage(0);
+      } else if (currentPage > 1) {
         goToPage(currentPage - 2);
       }
     }
@@ -184,8 +196,8 @@ export default function Notebook({
         translation.localizedCountry || original.country,
 
       writingMode: showOriginal
-        ? "horizontal-tb"
-        : translation.writingMode || "horizontal-tb",
+        ? getOriginalWritingMode(original)
+        : (translation.writingMode || getLocalizedWritingMode(original.translations?.[userLanguage], userLanguage)),
 
       coverImage:
         original.coverImage ||
@@ -341,7 +353,7 @@ export default function Notebook({
               >
                 <motion.div
                   className="cursor-pointer group pointer-events-auto"
-                  onClick={() => goToPage(0)}
+                  onClick={() => goToPage(1)}
                   whileHover={{ y: !isMobile ? 20 : 10 }}
                 >
                   <div className={cn(
@@ -353,40 +365,35 @@ export default function Notebook({
                 </motion.div>
               </div>
 
-              {/* Left Page / Single Page on Mobile */}
-              <div className={cn(
-                "relative z-10 flex flex-col transition-colors duration-500 overflow-hidden",
-                !isMobile
-                  ? "flex-1 border-r border-stone-300 dark:border-stone-800 p-12 md:p-16"
-                  : "w-full h-full p-8 pb-32"
-              )}>
-                <PageContent
-                  page={isMobile ? (globalPages[currentPage] || leftPage) : leftPage}
-                  getStoryData={getStoryData}
-                  stories={stories}
-                  onSelect={(s: Story) => {
-                    heartbeat.log(InteractionType.TACTILE_LONG_PRESS, { storyId: s.id });
-                    setSelectedStory(s);
-                  }}
-                  onGoToPage={goToPage}
-                  globalPages={globalPages}
-                />
-
-                {/* Penciled Page Number */}
-                <div className="absolute bottom-6 right-6 md:left-6 md:right-auto z-30 font-serif italic text-stone-900/30 dark:text-stone-100/30 text-xs translate-y-0">
-                  {currentPage + 1}
+              {/* Intro Full-Spread Surface (Desktop) vs Standard Dual-Page / Mobile Layout */}
+              {leftPage?.type === 'intro' && !isMobile ? (
+                <div className="w-full h-full p-12 md:p-20 relative z-10 flex flex-col justify-between overflow-hidden">
+                  <PageContent
+                    page={leftPage}
+                    getStoryData={getStoryData}
+                    stories={stories}
+                    onSelect={(s: Story) => {
+                      heartbeat.log(InteractionType.TACTILE_LONG_PRESS, { storyId: s.id });
+                      setSelectedStory(s);
+                    }}
+                    onGoToPage={goToPage}
+                    globalPages={globalPages}
+                  />
+                  <div className="absolute bottom-6 right-8 z-30 font-serif italic text-stone-900/30 dark:text-stone-100/30 text-xs">
+                    Preface
+                  </div>
                 </div>
-              </div>
-
-              {/* Gutter Binding Shadow (Only desktop) */}
-              {!isMobile && (
+              ) : (
                 <>
-                  <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-24 gutter-shadow z-20 pointer-events-none opacity-60" />
-
-                  {/* Right Page */}
-                  <div className="flex-1 relative p-12 md:p-16 z-10 flex flex-col transition-colors duration-500 overflow-hidden">
+                  {/* Left Page / Single Page on Mobile */}
+                  <div className={cn(
+                    "relative z-10 flex flex-col transition-colors duration-500 overflow-hidden",
+                    !isMobile
+                      ? "flex-1 border-r border-stone-300 dark:border-stone-800 p-12 md:p-16"
+                      : "w-full h-full p-8 pb-32"
+                  )}>
                     <PageContent
-                      page={rightPage}
+                      page={isMobile ? (globalPages[currentPage] || leftPage) : leftPage}
                       getStoryData={getStoryData}
                       stories={stories}
                       onSelect={(s: Story) => {
@@ -398,10 +405,37 @@ export default function Notebook({
                     />
 
                     {/* Penciled Page Number */}
-                    <div className="absolute bottom-6 right-6 z-30 font-serif italic text-stone-900/30 dark:text-stone-100/30 text-xs">
-                      {currentPage + 2}
+                    <div className="absolute bottom-6 right-6 md:left-6 md:right-auto z-30 font-serif italic text-stone-900/30 dark:text-stone-100/30 text-xs translate-y-0">
+                      {currentPage + 1}
                     </div>
                   </div>
+
+                  {/* Gutter Binding Shadow (Only desktop) */}
+                  {!isMobile && (
+                    <>
+                      <div className="absolute left-1/2 -translate-x-1/2 top-0 bottom-0 w-24 gutter-shadow z-20 pointer-events-none opacity-60" />
+
+                      {/* Right Page */}
+                      <div className="flex-1 relative p-12 md:p-16 z-10 flex flex-col transition-colors duration-500 overflow-hidden">
+                        <PageContent
+                          page={rightPage}
+                          getStoryData={getStoryData}
+                          stories={stories}
+                          onSelect={(s: Story) => {
+                            heartbeat.log(InteractionType.TACTILE_LONG_PRESS, { storyId: s.id });
+                            setSelectedStory(s);
+                          }}
+                          onGoToPage={goToPage}
+                          globalPages={globalPages}
+                        />
+
+                        {/* Penciled Page Number */}
+                        <div className="absolute bottom-6 right-6 z-30 font-serif italic text-stone-900/30 dark:text-stone-100/30 text-xs">
+                          {currentPage + 2}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 
@@ -516,11 +550,98 @@ export default function Notebook({
   );
 }
 
+function IntroPageContent({ page, userLang }: { page: any, userLang: string }) {
+  const [introText, setIntroText] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadIntroData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const text = await getIntro(userLang);
+      console.log("[Intro DEBUG] userLang:", userLang);
+      console.log("[Intro DEBUG] returned length:", text?.length);
+      console.log("[Intro DEBUG] returned text:", text);
+      setIntroText(text);
+    } catch (err: any) {
+      console.error("Failed to load intro:", err);
+      setError(err?.message || "Failed to load preface.");
+    } finally {
+      setLoading(false);
+    }
+  }, [userLang]);
+
+  useEffect(() => {
+    loadIntroData();
+  }, [loadIntroData]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 font-serif italic space-y-4" style={{ writingMode: 'horizontal-tb' }}>
+        <Loader2 className="animate-spin text-amber-600 dark:text-amber-500" size={32} />
+        <p className="text-sm">Consulting the Preface...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-stone-500 dark:text-stone-400 font-serif italic space-y-4 p-4 text-center" style={{ writingMode: 'horizontal-tb' }}>
+        <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <button
+          onClick={loadIntroData}
+          className="px-4 py-2 bg-stone-800 text-stone-100 rounded-full text-xs font-sans hover:bg-stone-700 transition-colors"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const paragraphs = (introText || '')
+    .split('\n\n')
+    .map(p => p.trim())
+    .filter(Boolean);
+
+  return (
+    <div className="flex flex-col h-full max-w-4xl mx-auto justify-between overflow-y-auto custom-scrollbar pr-2" style={{ writingMode: 'horizontal-tb' }}>
+      <div>
+        <div className="border-b-2 border-stone-200 dark:border-stone-800 pb-6 mb-8 text-center md:text-left">
+          <span className="text-[10px] uppercase tracking-[0.4em] text-amber-600 dark:text-amber-500 font-bold block mb-2">
+            Preface & Purpose
+          </span>
+          <h2 className="text-3xl md:text-5xl font-serif italic text-ink dark:text-ink-dark leading-tight">
+            The Scribe's Archive
+          </h2>
+        </div>
+
+        <div className="space-y-6 font-serif text-stone-800 dark:text-stone-200 text-base md:text-lg leading-relaxed italic">
+          {paragraphs.map((para, i) => (
+            <p key={i} className={i === 0 ? "first-letter:text-4xl first-letter:font-bold first-letter:mr-2 first-letter:float-left first-letter:text-amber-700 dark:first-letter:text-amber-500 first-letter:leading-none" : ""}>
+              <ReactMarkdown>{para}</ReactMarkdown>
+            </p>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-6 border-t border-stone-200/60 dark:border-stone-800/60 mt-8 flex items-center justify-between text-xs text-stone-400 dark:text-stone-500 font-serif italic">
+        <span>Global Crowd Storytelling</span>
+        <span>Vol. I</span>
+      </div>
+    </div>
+  );
+}
+
 function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, globalPages }: any) {
   // 1. Pull browser default language directly
   const userLang = (navigator.language || 'en').split('-')[0].toLowerCase();
 
   if (!page) return null;
+
+  if (page.type === 'intro') {
+    return <IntroPageContent page={page} userLang={userLang} />;
+  }
 
   if (page.type === 'toc') {
     return (
@@ -704,12 +825,12 @@ function FullScreenStory({
     : (localTrans?.transcreated_content || translation?.transcreated_content || translation?.transcreateContent || translation?.translatedContent || translation?.content || (rawStory as any)?.[userLang]?.transcreateContent || rawStory.text_content);
 
   const activeWritingMode = showOriginal
-    ? "horizontal-tb"
+    ? getOriginalWritingMode(rawStory)
     : (
       localTrans?.writingMode ||
       translation?.writingMode ||
       (rawStory as any)?.[userLang]?.writingMode ||
-      "horizontal-tb"
+      getLocalizedWritingMode(rawStory.translations?.[userLang], userLang)
     );
 
   const activeCountry = showOriginal

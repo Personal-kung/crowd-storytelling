@@ -1,17 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import Notebook from './components/Notebook';
 import { Story } from './types';
-import { getApprovedStories } from './services/storyService';
+import { getApprovedStories, getApprovedStoryById } from './services/storyService';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getUserLanguage, getStoryContent } from './services/languageService';
+import { getUserLanguage } from './services/languageService';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+function getSharedStoryIdFromUrl(): string | null {
+  const path = window.location.pathname;
+  const match = path.match(/^\/story\/([^/]+)/);
+  if (match && match[1]) {
+    return match[1];
+  }
+  return null;
+}
+
 export default function App() {
   const [stories, setStories] = useState<Story[]>([]);
+  const [sharedStory, setSharedStory] = useState<Story | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -19,16 +29,18 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userLanguage, setUserLanguage] = useState("en");
 
-
   useEffect(() => {
     setUserLanguage(
       getUserLanguage()
     );
   }, []);
 
-  // Calculate global page structure: [ToC, Story1, Story2, ...]
+  // Calculate global page structure: [Intro, ToC, Story1, Story2, ...]
   const globalPages = useMemo(() => {
-    const pages: any[] = [{ type: 'toc' }];
+    const pages: any[] = [
+      { type: 'intro' },
+      { type: 'toc' }
+    ];
     stories.forEach((story, sIdx) => {
       pages.push({
         type: 'story',
@@ -42,8 +54,21 @@ export default function App() {
   useEffect(() => {
     async function loadStories() {
       try {
+        const sharedId = getSharedStoryIdFromUrl();
+        let sharedDoc: Story | null = null;
+        if (sharedId) {
+          sharedDoc = await getApprovedStoryById(sharedId);
+          if (sharedDoc) {
+            setSharedStory(sharedDoc);
+          }
+        }
+
         const fetchedStories = await getApprovedStories();
-        setStories(fetchedStories);
+        if (sharedDoc && !fetchedStories.some(s => s.id === sharedDoc!.id)) {
+          setStories([sharedDoc, ...fetchedStories]);
+        } else {
+          setStories(fetchedStories);
+        }
       } catch (err) {
         console.error(
           "Story loading error:",
@@ -67,6 +92,7 @@ export default function App() {
       return next;
     });
   };
+
   const localizedStories = useMemo(() => {
     return stories.map(story => ({
       ...story,
@@ -76,7 +102,6 @@ export default function App() {
       localizedCountry: story.localizedCountry,
       translations: story.translations
     }));
-
   }, [
     stories,
     userLanguage
@@ -98,6 +123,7 @@ export default function App() {
       <main className="relative flex items-center justify-center min-h-screen p-4 md:p-8">
         <Notebook
           stories={localizedStories}
+          sharedStory={sharedStory}
           globalPages={globalPages}
           theme={theme}
           onThemeToggle={toggleTheme}

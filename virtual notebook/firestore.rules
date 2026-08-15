@@ -1,13 +1,21 @@
 rules_version = '2';
 
 service cloud.firestore {
-
   match /databases/{database}/documents {
 
     match /stories/{storyId} {
-
       allow read: if resource.data.status == "approved";
+      allow write: if false;
+    }
 
+    // Narrow public read access for Intro document only; public write is explicitly denied
+    match /intro/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /Intro/{docId} {
+      allow read: if true;
       allow write: if false;
     }
 

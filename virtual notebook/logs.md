@@ -16,3 +16,12 @@
 | 2026-07-29 | `src/App.tsx` | Connected story fetching lifecycle, global page structure calculation, and parchment dark/light mode toggles. |
 | 2026-08-14 | `README.md` | Rewrote project README into a concise, easy-to-understand 3-paragraph summary. |
 | 2026-08-14 | `logs.md` | Created development activity log in table format tracking dates, files, and actions. |
+| 2026-08-15 | `firestore.rules` | Restricted Intro rules to public read only (`allow read: if true; allow write: if false;`) on `/intro/{docId}` and `/Intro/{docId}`. |
+| 2026-08-15 | `admin_submission/functions/src/index.ts` | Added `generateIntroTranslation` Cloud Function trigger for secure server-side Intro transcreation and Admin SDK Firestore persistence. |
+| 2026-08-15 | `src/services/aiContentService.ts` | Added `ensureIntroTranslation` helper to trigger backend Cloud Function. |
+| 2026-08-15 | `src/services/introService.ts` | Configured `getIntro` for narrow public Firestore reads and backend Cloud Function writes for missing translations. |
+| 2026-08-15 | `src/App.tsx` | Simplified `globalPages` to single `{ type: 'intro' }` page entry. |
+| 2026-08-15 | `src/services/storyService.ts` | Added `getApprovedStoryById` function to fetch individual approved stories directly from Firestore by document ID. |
+| 2026-08-15 | `src/App.tsx` | Implemented `/story/{firebaseStoryId}` URL detection and `sharedStory` state loading. |
+| 2026-08-15 | `src/components/Notebook.tsx` | Configured `Notebook` to bypass Stories Index for valid shared stories (Cover → Intro → Story) while falling back gracefully to Stories Index for invalid IDs. |
+| 2026-08-15 | `src/services/introService.ts` | Modified to translated intro to match readers browser language |

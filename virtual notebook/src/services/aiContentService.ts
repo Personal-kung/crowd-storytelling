@@ -98,3 +98,12 @@ export async function ensureStoryAssets(
 
     return changed;
 }
+
+export async function ensureIntroTranslation(language: string): Promise<string> {
+    const generateIntroTranslation = httpsCallable<{ language: string }, { translation: string }>(
+        functions,
+        "generateIntroTranslation"
+    );
+    const result = await generateIntroTranslation({ language });
+    return result.data.translation;
+}

@@ -2,7 +2,9 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  doc,
+  getDoc
 } from "firebase/firestore";
 
 import {
@@ -62,7 +64,37 @@ async function resolveCoverImage(
 
 }
 
-
+export async function getApprovedStoryById(storyId: string): Promise<Story | null> {
+  if (!storyId) return null;
+  try {
+    const docRef = doc(db, "stories", storyId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      return null;
+    }
+    const data = snap.data() as Story;
+    if (data.status !== "approved") {
+      return null;
+    }
+    const language = getUserLanguage();
+    await ensureStoryAssets(
+      {
+        id: snap.id,
+        ...data
+      },
+      language
+    );
+    const coverUrl = await resolveCoverImage(data.coverImage);
+    return {
+      id: snap.id,
+      ...data,
+      coverImage: coverUrl
+    } as Story;
+  } catch (error) {
+    console.error("Error fetching story by ID:", error);
+    return null;
+  }
+}
 
 export async function getApprovedStories(): Promise<Story[]> {
 
@@ -159,3 +191,4 @@ export async function getApprovedStories(): Promise<Story[]> {
 
   return stories;
 }
+
