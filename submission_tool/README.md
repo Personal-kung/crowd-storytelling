@@ -35,3 +35,7 @@ The **Submission Tool** is the user-facing entry point for the Crowd Storytellin
     ```bash
     flutter run
     ```
+
+
+## Pending
+pending to work on personal intro generation
