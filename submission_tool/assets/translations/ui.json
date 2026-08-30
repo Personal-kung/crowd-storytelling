@@ -1,0 +1,71 @@
+{
+  "app.title": {
+    "en": "Global Notebook"
+  },
+  "hero.title": {
+    "en": "The Global Notebook"
+  },
+  "hero.description": {
+    "en": "We invited you here because what you have to share matters. This is a private, personalized digital storytelling space. There is no correct way to participate—only your way."
+  },
+  "dialog.handwrite.title": {
+    "en": "Handwrite / Draw"
+  },
+  "actions.clear": {
+    "en": "Clear"
+  },
+  "actions.save": {
+    "en": "Save"
+  },
+  "blocks.type": {
+    "en": "Type"
+  },
+  "blocks.photo": {
+    "en": "Photo"
+  },
+  "blocks.handwrite": {
+    "en": "Handwrite"
+  },
+  "blocks.placeholder": {
+    "en": "Start typing..."
+  },
+  "blocks.empty": {
+    "en": "Add a contribution:"
+  },
+  "sections.saying": {
+    "en": "Words that have stayed with you"
+  },
+  "sections.story": {
+    "en": "A story from home"
+  },
+  "sections.anything": {
+    "en": "Anything you'd like to share"
+  },
+  "identity.title": {
+    "en": "How would you like to be remembered?"
+  },
+  "identity.name": {
+    "en": "Name *"
+  },
+  "identity.countryOptional": {
+    "en": "Country (Optional)"
+  },
+  "actions.submit": {
+    "en": "Submit"
+  },
+  "status.saving": {
+    "en": "Saving..."
+  },
+  "status.saved": {
+    "en": "Saved"
+  },
+  "submission.error": {
+    "en": "Submission failed. Please try again."
+  },
+  "submission.thankYou": {
+    "en": "Thank you for sharing with us."
+  },
+  "fallback.country": {
+    "en": "The world"
+  }
+}

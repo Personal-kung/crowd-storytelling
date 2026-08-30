@@ -1,10 +1,8 @@
-
-```json
 {
   "schema_version": "1.0",
   "generated_at": "2026-08-23T13:39:00Z",
   "project": {
-    "name": "subssion_tool",
+    "name": "submission_tool",
     "root": "/home/ubuntu/Desktop/crowd-storytelling/submission_tool",
     "description": "The Submission Tool is the user-facing entry point for the Crowd Storytelling project. It captures stories and digitizes them.",
     "languages": [
@@ -363,4 +361,3 @@
     }
   ]
 }
-```

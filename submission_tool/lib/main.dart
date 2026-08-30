@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:signature/signature.dart';
 import 'package:country_picker/country_picker.dart';
@@ -14,9 +12,19 @@ import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'services/localization_service.dart';
+import 'services/story_service.dart';
+import 'models/story_cover_image.dart';
+
+import 'widgets/notebook_header.dart';
+import 'widgets/story_section.dart';
+import 'widgets/identity_section.dart';
+import 'widgets/notebook_submit.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await LocalizationService().init();
   runApp(const GlobalNotebookApp());
 }
 
@@ -26,7 +34,7 @@ class GlobalNotebookApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Global Notebook',
+      title: LocalizationService().t('app.title'),
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primarySwatch: Colors.blue, 
@@ -93,7 +101,6 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
   final List<StoryBlock> _storyBlocks = [];
   final List<StoryBlock> _anythingBlocks = [];
 
-  String? _invitationToken;
   String? _draftId;
   Timer? _autosaveTimer;
   bool _isSaving = false;
@@ -125,7 +132,6 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
       token = 'default-invite-v1'; // Fallback for local testing
     }
     
-    _invitationToken = token;
     
     try {
       var qs = await FirebaseFirestore.instance
@@ -247,7 +253,7 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
 
       await FirebaseFirestore.instance.collection('stories').doc(_draftId).update({
         'name': _nameController.text,
-        'country': _selectedCountryController.text.isNotEmpty ? _selectedCountryController.text : 'The world',
+        'country': _selectedCountryController.text.isNotEmpty ? _selectedCountryController.text : LocalizationService().t('fallback.country'),
         'countryISOCode': _countryISOCode,
         'contact': _contactController.text,
         'timestamp': FieldValue.serverTimestamp(),
@@ -269,78 +275,13 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
     } catch (e) {
       debugPrint("Submit Error: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Submission failed. Please try again.")));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(LocalizationService().t('submission.error'))));
       }
     } finally {
       if (mounted && Navigator.canPop(context)) Navigator.pop(context);
     }
   }
 
-  Widget _buildHero() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "The Global Notebook",
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, height: 1.2),
-          ),
-          const SizedBox(height: 16),
-          // Placeholder for Hero Collage
-          Row(
-            children: [
-              Expanded(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.auto_stories, color: Colors.black38, size: 40),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.landscape, color: Colors.black38, size: 40),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(Icons.people, color: Colors.black38, size: 40),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            "We invited you here because what you have to share matters. "
-            "This is a private, personalized digital storytelling space. "
-            "There is no correct way to participate—only your way.",
-            style: TextStyle(fontSize: 18, color: Colors.black87, height: 1.6),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _addTextBlock(List<StoryBlock> list) {
     setState(() {
@@ -371,7 +312,7 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Handwrite / Draw"),
+        title: Text(LocalizationService().t("dialog.handwrite.title")),
         content: SizedBox(
           width: 400,
           height: 300,
@@ -392,7 +333,7 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
                 children: [
                   TextButton(
                     onPressed: () => sigController.clear(),
-                    child: const Text("Clear"),
+                    child: Text(LocalizationService().t("actions.clear")),
                   ),
                   ElevatedButton(
                     onPressed: () async {
@@ -405,9 +346,9 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
                           _onFieldChanged();
                         }
                       }
-                      if (mounted) Navigator.pop(context);
+                      if (context.mounted) Navigator.pop(context);
                     },
-                    child: const Text("Save"),
+                    child: Text(LocalizationService().t("actions.save")),
                   ),
                 ],
               )
@@ -415,163 +356,6 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
           ),
         ),
       )
-    );
-  }
-
-  Widget _buildBlockToolbar(List<StoryBlock> list) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          ActionChip(
-            avatar: const Icon(Icons.text_fields, size: 16),
-            label: const Text("Type"),
-            onPressed: () => _addTextBlock(list),
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.camera_alt, size: 16),
-            label: const Text("Photo"),
-            onPressed: () => _addPhotoBlock(list),
-          ),
-          ActionChip(
-            avatar: const Icon(Icons.edit, size: 16),
-            label: const Text("Handwrite"),
-            onPressed: () => _addDrawBlock(list),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBlock(StoryBlock block, List<StoryBlock> list) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Stack(
-        children: [
-          if (block.type == BlockType.text)
-            TextField(
-              controller: block.textController,
-              maxLines: null,
-              style: const TextStyle(fontSize: 18, height: 1.5),
-              decoration: InputDecoration(
-                hintText: "Start typing...",
-                hintStyle: const TextStyle(color: Colors.black38),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.all(16),
-              ),
-            )
-          else if (block.bytes != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.memory(block.bytes!, fit: BoxFit.contain, width: double.infinity),
-            ),
-          
-          Positioned(
-            top: 4,
-            right: 4,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.black54),
-              onPressed: () {
-                setState(() {
-                  list.remove(block);
-                });
-                _onFieldChanged();
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSection(String title, List<StoryBlock> list) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 16),
-          ...list.map((b) => _buildBlock(b, list)),
-          if (list.isEmpty)
-             const Text("Add a contribution:", style: TextStyle(color: Colors.black54)),
-          const SizedBox(height: 8),
-          _buildBlockToolbar(list),
-          const Divider(height: 48, color: Colors.black12),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIdentity() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("How would you like to be remembered?", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _nameController,
-            decoration: InputDecoration(
-              labelText: "Name *",
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-            ),
-          ),
-          const SizedBox(height: 16),
-          InkWell(
-            onTap: () {
-              showCountryPicker(
-                context: context,
-                showPhoneCode: false,
-                onSelect: (Country country) {
-                  setState(() {
-                    _selectedCountryController.text = country.name;
-                    _countryISOCode = country.countryCode;
-                  });
-                  _onFieldChanged();
-                },
-              );
-            },
-            child: IgnorePointer(
-              child: TextField(
-                controller: _selectedCountryController,
-                decoration: InputDecoration(
-                  labelText: "Country (Optional)",
-                  filled: true,
-                  fillColor: Colors.white,
-                  suffixIcon: const Icon(Icons.arrow_drop_down),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 48),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _nameController.text.trim().isEmpty ? null : _submitStory,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black87,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text("Submit", style: TextStyle(fontSize: 18)),
-            ),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
     );
   }
 
@@ -584,16 +368,16 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
     }
 
     if (_submitted) {
-      return const Scaffold(
+      return Scaffold(
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.favorite, color: Colors.redAccent, size: 48),
-              SizedBox(height: 24),
+              const Icon(Icons.favorite, color: Colors.redAccent, size: 48),
+              const SizedBox(height: 24),
               Text(
-                "Thank you for sharing with us.",
-                style: TextStyle(fontSize: 24, fontFamily: 'Georgia'),
+                LocalizationService().t("submission.thankYou"),
+                style: const TextStyle(fontSize: 24, fontFamily: 'Georgia'),
               ),
             ],
           ),
@@ -602,31 +386,83 @@ class _SubmissionPlatformState extends State<SubmissionPlatform> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(right: 20.0),
-              child: Text(
-                _isSaving ? "Saving..." : "Saved",
-                style: const TextStyle(color: Colors.black54, fontSize: 14),
-              ),
-            ),
-          )
-        ],
-      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680), // Optimal reading width
-          child: ListView(
-            children: [
-              _buildHero(),
-              _buildSection("Words that have stayed with you", _sayingBlocks),
-              _buildSection("A story from home", _storyBlocks),
-              _buildSection("Anything you'd like to share", _anythingBlocks),
-              _buildIdentity(),
+          child: CustomScrollView(
+            slivers: [
+              // Use a SliverAppBar or just a normal box inside sliver list for the status
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 16.0, right: 24.0, bottom: 8.0),
+                  child: Align(
+                    alignment: Alignment.topRight,
+                    child: Text(
+                      _isSaving ? LocalizationService().t("status.saving") : LocalizationService().t("status.saved"),
+                      style: const TextStyle(color: Colors.black38, fontSize: 13, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                ),
+              ),
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  const NotebookHeader(),
+                  StorySection(
+                    chapterNumber: "01",
+                    title: LocalizationService().t("sections.saying") ?? "Saying",
+                    blocks: _sayingBlocks,
+                    onAddText: () => _addTextBlock(_sayingBlocks),
+                    onAddPhoto: () => _addPhotoBlock(_sayingBlocks),
+                    onAddDraw: () => _addDrawBlock(_sayingBlocks),
+                    onRemoveBlock: (b) {
+                      setState(() => _sayingBlocks.remove(b));
+                      _onFieldChanged();
+                    },
+                    onChanged: _onFieldChanged,
+                  ),
+                  StorySection(
+                    chapterNumber: "02",
+                    title: LocalizationService().t("sections.story") ?? "Story",
+                    blocks: _storyBlocks,
+                    onAddText: () => _addTextBlock(_storyBlocks),
+                    onAddPhoto: () => _addPhotoBlock(_storyBlocks),
+                    onAddDraw: () => _addDrawBlock(_storyBlocks),
+                    onRemoveBlock: (b) {
+                      setState(() => _storyBlocks.remove(b));
+                      _onFieldChanged();
+                    },
+                    onChanged: _onFieldChanged,
+                  ),
+                  StorySection(
+                    chapterNumber: "03",
+                    title: LocalizationService().t("sections.anything") ?? "Anything",
+                    blocks: _anythingBlocks,
+                    onAddText: () => _addTextBlock(_anythingBlocks),
+                    onAddPhoto: () => _addPhotoBlock(_anythingBlocks),
+                    onAddDraw: () => _addDrawBlock(_anythingBlocks),
+                    onRemoveBlock: (b) {
+                      setState(() => _anythingBlocks.remove(b));
+                      _onFieldChanged();
+                    },
+                    onChanged: _onFieldChanged,
+                  ),
+                  IdentitySection(
+                    nameController: _nameController,
+                    countryController: _selectedCountryController,
+                    onCountrySelected: (Country country) {
+                      setState(() {
+                        _selectedCountryController.text = country.name;
+                        _countryISOCode = country.countryCode;
+                      });
+                      _onFieldChanged();
+                    },
+                  ),
+                  NotebookSubmit(
+                    isReady: _nameController.text.trim().isNotEmpty,
+                    onSubmit: _submitStory,
+                  ),
+                ]),
+              ),
             ],
           ),
         ),
