@@ -1,4 +1,4 @@
-# subssion_tool
+# submission_tool
 
 The **Submission Tool** is the user-facing entry point for the Crowd Storytelling project. Known as "The Gateway," it captures stories from around the world and digitizes them for the physical book.
 
