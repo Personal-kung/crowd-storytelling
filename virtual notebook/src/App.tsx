@@ -29,27 +29,86 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [userLanguage, setUserLanguage] = useState("en");
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkViewport = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkViewport();
+    window.addEventListener('resize', checkViewport);
+    return () => window.removeEventListener('resize', checkViewport);
+  }, []);
+
   useEffect(() => {
     setUserLanguage(
       getUserLanguage()
     );
   }, []);
 
-  // Calculate global page structure: [Intro, ToC, Story1, Story2, ...]
+  // Calculate global page structure:
+  // Default URL: [Intro, ToC, Story0, Story1, ...]
+  // Shared URL Desktop (!isMobile): [SharedStory(0), Blank(1), Intro(2), ToC(3), Story1(4), ...]
+  // Shared URL Mobile (isMobile): [SharedStory(0), Intro(1), ToC(2), Story1(3), ...]
   const globalPages = useMemo(() => {
-    const pages: any[] = [
-      { type: 'intro' },
-      { type: 'toc' }
-    ];
-    stories.forEach((story, sIdx) => {
-      pages.push({
-        type: 'story',
-        storyIndex: sIdx,
-        isCover: true // Every story page in the notebook is a cover/preview
+    if (!stories.length) return [];
+
+    if (sharedStory) {
+      if (!isMobile) {
+        // Desktop
+        const pages: any[] = [
+          {
+            type: 'story',
+            storyIndex: 0,
+            isCover: true
+          },
+          { type: 'blank' },
+          { type: 'intro' },
+          { type: 'toc' }
+        ];
+        for (let sIdx = 1; sIdx < stories.length; sIdx++) {
+          pages.push({
+            type: 'story',
+            storyIndex: sIdx,
+            isCover: true
+          });
+        }
+        return pages;
+      } else {
+        // Mobile
+        const pages: any[] = [
+          {
+            type: 'story',
+            storyIndex: 0,
+            isCover: true
+          },
+          { type: 'intro' },
+          { type: 'toc' }
+        ];
+        for (let sIdx = 1; sIdx < stories.length; sIdx++) {
+          pages.push({
+            type: 'story',
+            storyIndex: sIdx,
+            isCover: true
+          });
+        }
+        return pages;
+      }
+    } else {
+      const pages: any[] = [
+        { type: 'intro' },
+        { type: 'toc' }
+      ];
+      stories.forEach((_, sIdx) => {
+        pages.push({
+          type: 'story',
+          storyIndex: sIdx,
+          isCover: true
+        });
       });
-    });
-    return pages;
-  }, [stories]);
+      return pages;
+    }
+  }, [stories, sharedStory, isMobile]);
 
   useEffect(() => {
     async function loadStories() {
@@ -64,8 +123,9 @@ export default function App() {
         }
 
         const fetchedStories = await getApprovedStories();
-        if (sharedDoc && !fetchedStories.some(s => s.id === sharedDoc!.id)) {
-          setStories([sharedDoc, ...fetchedStories]);
+        if (sharedDoc) {
+          const remaining = fetchedStories.filter(s => s.id !== sharedDoc!.id);
+          setStories([sharedDoc, ...remaining]);
         } else {
           setStories(fetchedStories);
         }

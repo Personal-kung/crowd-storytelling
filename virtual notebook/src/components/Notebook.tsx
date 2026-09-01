@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Story } from '../types';
-import { ChevronLeft, ChevronRight, X, BookOpen, Loader2, Globe, Moon, Sun, ArrowLeft, Bookmark } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, BookOpen, Loader2, Globe, Moon, Sun, ArrowLeft, Bookmark, Share2, Check } from 'lucide-react';
 import { transcreateStory } from '../services/transcreationService';
 import { GoogleGenAI } from "@google/genai";
 import { useInView } from 'react-intersection-observer';
@@ -97,6 +97,45 @@ export default function Notebook({
     return () => window.removeEventListener('resize', checkViewport);
   }, []);
 
+  const prevSelectedStoryRef = useRef<Story | null>(null);
+
+  // Deep linking URL sync on story selection
+  useEffect(() => {
+    if (selectedStory) {
+      if (selectedStory.id !== prevSelectedStoryRef.current?.id) {
+        window.history.pushState(null, '', `/story/${selectedStory.id}`);
+      }
+    } else if (prevSelectedStoryRef.current !== null) {
+      window.history.pushState(null, '', '/');
+    }
+    prevSelectedStoryRef.current = selectedStory;
+  }, [selectedStory]);
+
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const match = window.location.pathname.match(/^\/story\/([^/]+)/);
+      if (match && match[1]) {
+        const storyId = match[1];
+        const found = stories.find(s => s.id === storyId);
+        if (found) {
+          setSelectedStory(found);
+          prevSelectedStoryRef.current = found;
+          return;
+        }
+      }
+      setSelectedStory(null);
+      prevSelectedStoryRef.current = null;
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [stories]);
+
+  const tocIndex = useMemo(() => {
+    const idx = globalPages.findIndex(p => p?.type === 'toc');
+    return idx !== -1 ? idx : 1;
+  }, [globalPages]);
 
   const flipDuration = 0.5;
 
@@ -129,18 +168,15 @@ export default function Notebook({
   };
 
   const nextPage = () => {
-    if (currentPage === 0 && sharedStory) {
-      setSelectedStory(sharedStory);
-      goToPage(1);
-      return;
-    }
     if (isMobile) {
       if (currentPage < globalPages.length - 1) {
         goToPage(currentPage + 1);
       }
     } else {
       if (currentPage === 0) {
-        goToPage(1);
+        goToPage(sharedStory ? 2 : 1);
+      } else if (currentPage === 2 && sharedStory) {
+        goToPage(3);
       } else if (currentPage < globalPages.length - 2) {
         goToPage(currentPage + 2);
       }
@@ -153,7 +189,11 @@ export default function Notebook({
         goToPage(currentPage - 1);
       }
     } else {
-      if (currentPage === 1) {
+      if (currentPage === 3 && sharedStory) {
+        goToPage(2);
+      } else if (currentPage === 2 && sharedStory) {
+        goToPage(0);
+      } else if (currentPage === 1) {
         goToPage(0);
       } else if (currentPage > 1) {
         goToPage(currentPage - 2);
@@ -353,7 +393,7 @@ export default function Notebook({
               >
                 <motion.div
                   className="cursor-pointer group pointer-events-auto"
-                  onClick={() => goToPage(1)}
+                  onClick={() => goToPage(tocIndex)}
                   whileHover={{ y: !isMobile ? 20 : 10 }}
                 >
                   <div className={cn(
@@ -550,10 +590,39 @@ export default function Notebook({
   );
 }
 
+const INTRO_TITLES: Record<string, { subtitle: string; title: string }> = {
+  en: {
+    subtitle: "Preface & Purpose",
+    title: "The Scribe's Archive"
+  },
+  es: {
+    subtitle: "Prefacio y Propósito",
+    title: "El Archivo del Escriba"
+  },
+  ja: {
+    subtitle: "序文と目的",
+    title: "記録者のアーカイブ"
+  },
+  zh: {
+    subtitle: "序言与宗旨",
+    title: "书记员档案"
+  },
+  uz: {
+    subtitle: "So'zboshi va Maqsad",
+    title: "Kotib Arxivi"
+  }
+};
+
+function getIntroTitles(userLang: string) {
+  const langKey = (userLang || 'en').toLowerCase().split('-')[0];
+  return INTRO_TITLES[langKey] || INTRO_TITLES.en;
+}
+
 function IntroPageContent({ page, userLang }: { page: any, userLang: string }) {
   const [introText, setIntroText] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const introTitles = getIntroTitles(userLang);
 
   const loadIntroData = useCallback(async () => {
     try {
@@ -609,10 +678,10 @@ function IntroPageContent({ page, userLang }: { page: any, userLang: string }) {
       <div>
         <div className="border-b-2 border-stone-200 dark:border-stone-800 pb-6 mb-8 text-center md:text-left">
           <span className="text-[10px] uppercase tracking-[0.4em] text-amber-600 dark:text-amber-500 font-bold block mb-2">
-            Preface & Purpose
+            {introTitles.subtitle}
           </span>
           <h2 className="text-3xl md:text-5xl font-serif italic text-ink dark:text-ink-dark leading-tight">
-            The Scribe's Archive
+            {introTitles.title}
           </h2>
         </div>
 
@@ -638,6 +707,10 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
   const userLang = (navigator.language || 'en').split('-')[0].toLowerCase();
 
   if (!page) return null;
+
+  if (page.type === 'blank') {
+    return <div className="h-full w-full" />;
+  }
 
   if (page.type === 'intro') {
     return <IntroPageContent page={page} userLang={userLang} />;
@@ -777,6 +850,59 @@ function PageContent({ page, getStoryData, stories, onSelect, onGoToPage, global
   );
 }
 
+function StoryShareButton({ storyId, isMobile }: { storyId: string; isMobile: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/story/${storyId}`;
+
+    if (navigator.share && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: 'Virtual Notebook Story',
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          return;
+        }
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleShare}
+      title="Share Story"
+      className={cn(
+        "flex items-center gap-2 px-6 py-4 bg-stone-900 text-white rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all",
+        isMobile && "px-4 py-2 scale-75"
+      )}
+    >
+      {copied ? (
+        <>
+          <Check size={isMobile ? 16 : 20} className="text-emerald-400" />
+          <span className={cn("font-serif italic text-emerald-400", isMobile && "text-sm")}>Copied</span>
+        </>
+      ) : (
+        <>
+          <Share2 size={isMobile ? 16 : 20} />
+          <span className={cn("font-serif italic", isMobile && "text-sm")}>Share</span>
+        </>
+      )}
+    </button>
+  );
+}
+
 function FullScreenStory({
   story,
   stories,
@@ -793,8 +919,8 @@ function FullScreenStory({
   stories: Story[],
   localTranscreations: Record<string, Partial<Story>>,
   onClose: () => void,
-  onTranscreate: (s: Story, l: string) => void,
-  isTranscreating: boolean,
+  onTranscreate?: (s: Story, l: string) => void,
+  isTranscreating?: boolean,
   theme: 'light' | 'dark',
   onThemeToggle: () => void,
   onPrev?: () => void;
@@ -899,9 +1025,10 @@ function FullScreenStory({
       </div>
 
       <div className={cn(
-        "fixed flex gap-4 z-[110]",
+        "fixed flex gap-4 items-center z-[110]",
         !isMobile ? "top-8 right-8" : "top-4 right-4"
       )}>
+        <StoryShareButton storyId={story.id} isMobile={isMobile} />
         <div className="relative">
           <button
             onClick={() => setShowLang(!showLang)}
